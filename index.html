@@ -262,6 +262,46 @@
   .auth-logo img{height:40px;}
   .auth-title{font-family:var(--font-display);font-weight:700;font-size:20px;text-align:center;margin-bottom:4px;}
   .auth-sub{font-size:12.5px;color:var(--ink-soft);text-align:center;margin-bottom:20px;line-height:1.5;}
+  .scan-backdrop{
+    position:fixed;inset:0;background:rgba(20,20,22,.82);z-index:120;
+    display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;
+  }
+  .scan-backdrop.open{display:flex;}
+  .scan-panel{
+    background:var(--surface);border-radius:14px;padding:14px;width:100%;max-width:460px;
+    box-shadow:0 18px 50px rgba(0,0,0,.35);
+  }
+  .scan-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-display);font-weight:600;margin-bottom:10px;}
+  .scan-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;}
+  #scanner-box{border-radius:10px;overflow:hidden;background:#000;min-height:200px;}
+  #scanner-box video{width:100%!important;display:block;border-radius:10px;}
+
+  .ac-wrap{position:relative;}
+  .ac-list{
+    position:absolute;left:0;right:0;top:100%;z-index:40;
+    background:var(--surface);border:1.5px solid var(--line);border-radius:9px;
+    box-shadow:0 10px 26px rgba(0,0,0,.16);max-height:230px;overflow-y:auto;margin-top:3px;
+  }
+  .ac-item{padding:9px 11px;cursor:pointer;border-bottom:1px solid var(--line-soft);}
+  .ac-item:last-child{border-bottom:none;}
+  .ac-item:hover,.ac-item.sel{background:var(--surface-alt);}
+  .ac-item .ac-nome{font-size:13px;color:var(--ink);line-height:1.25;}
+  .ac-item .ac-meta{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .ac-more{padding:7px 11px;font-size:11.5px;color:var(--ink-faint);background:var(--surface-alt);}
+
+  .filial-bar{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:9px 16px;background:var(--surface-alt);border-bottom:1px solid var(--line);
+  }
+  .filial-bar label{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .filial-bar select{
+    font-family:var(--font-body);font-size:13px;padding:6px 9px;border-radius:7px;
+    border:1.5px solid var(--line);background:var(--surface);color:var(--ink);
+  }
+  .filial-tag{
+    display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;
+    background:var(--green-soft);color:var(--green-dark);margin-left:6px;
+  }
   .auth-error{background:var(--red-soft);color:var(--red-dark);font-size:12.5px;padding:8px 10px;border-radius:7px;margin-bottom:12px;}
   .spinner{
     width:32px;height:32px;border-radius:50%;margin:8px auto 0 auto;
@@ -313,6 +353,8 @@
     <div class="tabs" id="tabs"></div>
   </header>
 
+  <div id="filialBar"></div>
+
   <div class="db-bar" id="dbBar"></div>
 
   <div id="notices"></div>
@@ -324,6 +366,21 @@
 
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal" id="modalBody"></div>
+</div>
+
+<div class="scan-backdrop" id="scanBackdrop">
+  <div class="scan-panel">
+    <div class="scan-head">
+      <span>Escanear código de barras</span>
+      <button class="icon-btn" onclick="App.closeScanner()">&times;</button>
+    </div>
+    <div id="scanner-box"></div>
+    <div class="scan-foot">
+      <label class="file-label">Ler de uma foto<input type="file" accept="image/*" onchange="App.scanFromFile(event)"></label>
+      <button class="btn btn-ghost btn-sm" onclick="App.closeScanner()">Cancelar</button>
+    </div>
+    <div id="scan-msg" class="hint" style="margin-top:8px;"></div>
+  </div>
 </div>
 
 <div id="hidden-file-reader" style="display:none"></div>
@@ -346,6 +403,7 @@
   var itemsPlaca = [];
   var productDB = {};
   var pendingImport = null;
+  var activeFilial = null;
   var currentScanner = null;
   var pendingPhoto = { expoNew:null, resolveProof:null, valNew:null, placaNew:null, placaProof:null };
   var LOGO_SRC = (function(){
@@ -484,6 +542,7 @@
         if(p.foto) rec.foto = p.foto;
         productDB[String(p.barcode)] = rec;
       });
+      rebuildProductIndex();
       apiOk = true; apiError = '';
     }).catch(function(err){
       apiOk = false;
@@ -491,28 +550,114 @@
     });
   }
 
-  /* ---------- scanner ---------- */
+  /* ---------- scanner ----------
+     Abre em uma camada própria (não usa o modal), para que o formulário
+     aberto por trás continue existindo com todos os valores preenchidos.
+     Usa facingMode "environment" para abrir direto a câmera traseira,
+     sem a tela de escolha de câmera. */
+  var scanCallback = null;
+
+  function setScanMsg(html){
+    var el = document.getElementById('scan-msg');
+    if(el) el.innerHTML = html || '';
+  }
+
   function openScanner(onResult){
-    showModal(
-      '<div class="modal-head"><h3>Escanear código de barras</h3>' +
-      '<button class="icon-btn" onclick="App.closeModal()">&times;</button></div>' +
-      '<div id="scanner-box"></div>' +
-      '<p class="hint" style="margin-top:10px;">Aponte a câmera para o código de barras. Se preferir, use a opção de enviar uma foto dentro do próprio leitor.</p>'
-    );
-    try{
-      currentScanner = new Html5QrcodeScanner('scanner-box', {
-        fps:10, qrbox:{width:250,height:130}, formatsToSupport:FORMATS, rememberLastUsedCamera:true
-      }, false);
-      currentScanner.render(function(decodedText){
-        try{ currentScanner.clear(); }catch(e){}
-        currentScanner = null;
-        closeModal();
-        onResult(decodedText);
-      }, function(){ /* ignora falhas de leitura por frame */ });
-    }catch(e){
-      document.getElementById('scanner-box').innerHTML =
-        '<div class="warn-box">Não foi possível abrir a câmera neste navegador. Digite o código manualmente no campo.</div>';
+    scanCallback = onResult;
+    document.getElementById('scanBackdrop').classList.add('open');
+    document.getElementById('scanner-box').innerHTML = '';
+    setScanMsg('Abrindo a câmera…');
+
+    if(typeof Html5Qrcode === 'undefined'){
+      setScanMsg('<div class="warn-box">Leitor de código indisponível neste navegador. Digite o código manualmente ou use "Ler de uma foto".</div>');
+      return;
     }
+    try{
+      currentScanner = new Html5Qrcode('scanner-box', { formatsToSupport:FORMATS, verbose:false });
+    }catch(e){
+      setScanMsg('<div class="warn-box">Não foi possível iniciar o leitor. Digite o código manualmente.</div>');
+      return;
+    }
+
+    var config = {
+      fps: 10,
+      qrbox: function(w, h){
+        var side = Math.floor(Math.min(w, h));
+        return { width: Math.floor(Math.min(w * 0.9, 320)), height: Math.floor(Math.min(side * 0.55, 170)) };
+      },
+      aspectRatio: 1.334,
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+    };
+
+    currentScanner.start(
+      { facingMode: 'environment' },
+      config,
+      function(decodedText){ handleScanSuccess(decodedText); },
+      function(){ /* ignora falhas de leitura por frame */ }
+    ).then(function(){
+      setScanMsg('Aponte a câmera para o código de barras.');
+    }).catch(function(err){
+      var msg = String((err && err.message) || err || '');
+      if(/NotAllowedError|Permission/i.test(msg)){
+        setScanMsg('<div class="warn-box">Permissão de câmera negada. Autorize o acesso à câmera nas configurações do navegador, ou use "Ler de uma foto".</div>');
+      } else if(/NotFoundError|no camera/i.test(msg)){
+        setScanMsg('<div class="warn-box">Nenhuma câmera encontrada neste dispositivo. Use "Ler de uma foto" ou digite o código.</div>');
+      } else if(location.protocol !== 'https:' && location.hostname !== 'localhost'){
+        setScanMsg('<div class="warn-box">A câmera só funciona em endereços seguros (https). Abra o app pelo link publicado, ou use "Ler de uma foto".</div>');
+      } else {
+        setScanMsg('<div class="warn-box">Não foi possível abrir a câmera ('+esc(msg)+'). Use "Ler de uma foto" ou digite o código.</div>');
+      }
+    });
+  }
+
+  function handleScanSuccess(decodedText){
+    var cb = scanCallback;
+    stopScanner().then(function(){
+      closeScanner();
+      if(cb) cb(decodedText);
+    });
+  }
+
+  function stopScanner(){
+    if(!currentScanner) return Promise.resolve();
+    var sc = currentScanner;
+    currentScanner = null;
+    return sc.stop().then(function(){
+      try{ sc.clear(); }catch(e){}
+    }).catch(function(){
+      try{ sc.clear(); }catch(e){}
+    });
+  }
+
+  function closeScanner(){
+    stopScanner();
+    scanCallback = null;
+    document.getElementById('scanBackdrop').classList.remove('open');
+    document.getElementById('scanner-box').innerHTML = '';
+    setScanMsg('');
+  }
+
+  function scanFromFile(evt){
+    var file = evt.target.files && evt.target.files[0];
+    evt.target.value = '';
+    if(!file) return;
+    if(typeof Html5Qrcode === 'undefined'){
+      setScanMsg('<div class="warn-box">Leitor indisponível neste navegador.</div>');
+      return;
+    }
+    setScanMsg('Lendo a imagem…');
+    var cb = scanCallback;
+    stopScanner().then(function(){
+      var tmp = new Html5Qrcode('scanner-box', { formatsToSupport:FORMATS, verbose:false });
+      tmp.scanFile(file, true).then(function(decodedText){
+        try{ tmp.clear(); }catch(e){}
+        closeScanner();
+        if(cb) cb(decodedText);
+      }).catch(function(){
+        try{ tmp.clear(); }catch(e){}
+        setScanMsg('<div class="warn-box">Não foi possível ler o código nessa foto. Tente uma foto mais próxima e bem iluminada, ou digite o código manualmente.</div>');
+      });
+    });
   }
 
   /* ---------- product lookup (best effort, public database) ---------- */
@@ -546,10 +691,28 @@
   function normalizeHeader(h){
     return String(h==null?'':h).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
   }
+  /* Ordem de prioridade importa: 'barcode' antes de 'interno', e
+     'interno' antes de 'descricao', para que "Código de Barras" não caia
+     em "código" genérico e "Nome SKU" não seja lido como código interno. */
+  var HEADER_CONTAINS = [
+    { key:'barcode',   parts:['codigodebarras','codigobarras','codbarras','codbarra','ean','gtin','barcode'] },
+    { key:'foto',      parts:['foto','imagem','image','photo'] },
+    { key:'interno',   parts:['codigointerno','codinterno','codigointerno','internocodigo','codigodoproduto','codigoproduto'] },
+    { key:'descricao', parts:['descricao','nome','produto','desc','sku'] },
+    { key:'interno',   parts:['sku','codigo','cod'] }
+  ];
+
   function matchHeader(rawHeader){
     var norm = normalizeHeader(rawHeader);
     for(var key in HEADER_SYNONYMS){
       if(HEADER_SYNONYMS[key].indexOf(norm) !== -1) return key;
+    }
+    // Sem correspondência exata: tenta por conteúdo (ex.: "Nome SKU", "Cód. Barras EAN")
+    for(var i=0;i<HEADER_CONTAINS.length;i++){
+      var rule = HEADER_CONTAINS[i];
+      for(var j=0;j<rule.parts.length;j++){
+        if(norm.indexOf(rule.parts[j]) !== -1) return rule.key;
+      }
     }
     return null;
   }
@@ -598,6 +761,70 @@
     return productDB[String(barcode).trim()] || null;
   }
 
+  /* ---------- índices de busca da base de produtos ---------- */
+  var dbIndexInterno = {};   // codigoInterno -> {barcode, ...}
+  var dbSearchList = [];     // [{barcode, descricao, codigoInterno, foto, busca}]
+  var AC_LIMIT = 8;          // quantidade de sugestões exibidas (bom para celular)
+
+  function normalizeSearch(s){
+    return String(s||'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().replace(/\s+/g,' ').trim();
+  }
+
+  function rebuildProductIndex(){
+    dbIndexInterno = {};
+    dbSearchList = [];
+    for(var bc in productDB){
+      var p = productDB[bc] || {};
+      var ci = String(p.codigoInterno||'').trim();
+      if(ci && !dbIndexInterno[ci]) dbIndexInterno[ci] = { barcode:bc, descricao:p.descricao||'', codigoInterno:ci, foto:p.foto||'' };
+      dbSearchList.push({
+        barcode: bc,
+        descricao: p.descricao||'',
+        codigoInterno: ci,
+        foto: p.foto||'',
+        busca: normalizeSearch((p.descricao||'') + ' ' + ci + ' ' + bc)
+      });
+    }
+  }
+
+  function lookupByInterno(codigo){
+    codigo = String(codigo||'').trim();
+    if(!codigo) return null;
+    if(dbIndexInterno[codigo]) return dbIndexInterno[codigo];
+    // tenta sem zeros à esquerda, comum em planilhas
+    var stripped = codigo.replace(/^0+/,'');
+    for(var k in dbIndexInterno){
+      if(k.replace(/^0+/,'') === stripped) return dbIndexInterno[k];
+    }
+    return null;
+  }
+
+  /* Busca por nome: todos os termos digitados precisam aparecer no item,
+     em qualquer ordem. Ex.: "desod rexona 150" encontra
+     "DESOD REXONA AERO 150ML ...". */
+  function searchProducts(query, limit){
+    limit = limit || AC_LIMIT;
+    var q = normalizeSearch(query);
+    if(q.length < 2) return { list:[], total:0 };
+    var terms = q.split(' ').filter(Boolean);
+    var out = [], total = 0;
+    for(var i=0;i<dbSearchList.length;i++){
+      var item = dbSearchList[i];
+      var ok = true;
+      for(var t=0;t<terms.length;t++){
+        if(item.busca.indexOf(terms[t]) === -1){ ok = false; break; }
+      }
+      if(ok){
+        total++;
+        if(out.length < limit) out.push(item);
+        else if(total > 500) break; // evita varrer 21 mil itens desnecessariamente
+      }
+    }
+    return { list:out, total:total };
+  }
+
   function openImportDBModal(){
     pendingImport = null;
     var count = Object.keys(productDB).length;
@@ -642,6 +869,7 @@
     if(!pendingImport) return;
     var added = Object.keys(pendingImport).length;
     for(var bc in pendingImport){ productDB[bc] = pendingImport[bc]; }
+    rebuildProductIndex();
     var preview = document.getElementById('import-preview');
     if(preview) preview.innerHTML = '<div class="lookup-status">Salvando '+added+' item(ns) na planilha, isso pode levar alguns segundos…</div>';
     persistDB().then(function(){
@@ -660,11 +888,13 @@
     if(!confirm('Apagar toda a base de produtos importada? Essa ação não afeta os itens já registrados nos módulos.')) return;
     var backup = productDB;
     productDB = {};
+    rebuildProductIndex();
     persistDB().then(function(){
       closeModal();
       render();
     }).catch(function(){
       productDB = backup;
+      rebuildProductIndex();
       alert('Não foi possível limpar a base na planilha agora. Verifique a conexão e tente novamente.');
     });
   }
@@ -672,6 +902,40 @@
   /* ---------- autenticação / usuários ---------- */
 
   var ROLE_LABEL = { comprador:'Comprador', loja:'Loja', marketing:'Marketing' };
+
+  /* ---------- filiais ---------- */
+  var FILIAIS = [
+    { id:'aracruz',  label:'1 - ARACRUZ'  },
+    { id:'linhares', label:'2 - LINHARES' }
+  ];
+  var FILIAL_LABEL = {};
+  FILIAIS.forEach(function(f){ FILIAL_LABEL[f.id] = f.label; });
+
+  function filialLabel(id){ return FILIAL_LABEL[id] || '—'; }
+
+  /* Comprador enxerga as duas lojas e escolhe em qual está atuando.
+     Loja e marketing ficam fixos na filial definida no cadastro. */
+  function isComprador(){ return role === 'comprador'; }
+
+  function userFiliais(u){
+    if(!u) return [];
+    if(u.papel === 'comprador') return FILIAIS.map(function(f){ return f.id; });
+    return u.filial ? [u.filial] : [];
+  }
+
+  function setActiveFilial(id){
+    if(userFiliais(currentUser).indexOf(id) === -1) return;
+    activeFilial = id;
+    try{ localStorage.setItem('giro-filial', id); }catch(e){}
+    render();
+  }
+
+  function inActiveFilial(item){
+    // Itens antigos, criados antes da separação por filial, ficam visíveis
+    // para todos até serem atualizados — assim nada some da tela.
+    if(!item.filial) return true;
+    return item.filial === activeFilial;
+  }
 
   function normalizedPin(v){ return String(v||'').trim(); }
 
@@ -760,12 +1024,13 @@
     var pin = normalizedPin(document.getElementById('su-pin').value);
     if(!nome){ authError = 'Informe seu nome.'; renderGate(); return; }
     if(!/^\d{4}$/.test(pin)){ authError = 'O PIN deve ter 4 números.'; renderGate(); return; }
-    var user = { id:uid(), nome:nome, papel:'comprador', pin:pin };
+    var user = { id:uid(), nome:nome, papel:'comprador', pin:pin, filial:'' };
     users = [user];
     persistUsers();
     authError = '';
     currentUser = user;
     role = currentUser.papel;
+    activeFilial = FILIAIS[0].id;
     render();
   }
 
@@ -802,6 +1067,22 @@
     authError = '';
     currentUser = user;
     role = currentUser.papel;
+
+    var allowed = userFiliais(user);
+    if(!allowed.length){
+      authError = 'Seu acesso ainda não tem uma filial definida. Peça para um Comprador ajustar seu cadastro em "Usuários".';
+      currentUser = null; role = null;
+      renderGate();
+      return;
+    }
+    if(user.papel === 'comprador'){
+      var saved = null;
+      try{ saved = localStorage.getItem('giro-filial'); }catch(e){}
+      activeFilial = (saved && allowed.indexOf(saved) !== -1) ? saved : allowed[0];
+    } else {
+      activeFilial = allowed[0];
+    }
+
     var visible = visibleTabsFor(role);
     if(visible.indexOf(activeTab) === -1) activeTab = visible[0];
     render();
@@ -826,19 +1107,36 @@
       '<div class="modal-head"><h3>Usuários</h3><button class="icon-btn" onclick="App.closeModal()">&times;</button></div>' +
       '<div id="users-list">' + renderUsersList() + '</div>' +
       '<div class="field" style="margin-top:16px;"><label>Nome</label><input type="text" id="nu-nome" placeholder="Nome da pessoa"></div>' +
-      '<div class="field"><label>Papel</label><select id="nu-papel" style="width:100%;font-family:var(--font-body);font-size:14px;padding:10px 11px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);">' +
+      '<div class="field"><label>Papel</label><select id="nu-papel" onchange="App.onRoleChange()" style="width:100%;font-family:var(--font-body);font-size:14px;padding:10px 11px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);">' +
         '<option value="comprador">Comprador</option><option value="loja">Loja</option><option value="marketing">Marketing</option>' +
       '</select></div>' +
+      '<div class="field" id="nu-filial-field" style="display:none;"><label>Filial</label>' +
+        '<select id="nu-filial" style="width:100%;font-family:var(--font-body);font-size:14px;padding:10px 11px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);">' +
+          FILIAIS.map(function(f){ return '<option value="'+f.id+'">'+esc(f.label)+'</option>'; }).join('') +
+        '</select>' +
+        '<p class="hint" style="margin-top:6px;">Loja e Marketing só enxergam as demandas da filial escolhida. Compradores têm acesso às duas.</p>' +
+      '</div>' +
       '<div class="field"><label>PIN de 4 dígitos</label><input type="text" class="pin-input" id="nu-pin" inputmode="numeric" maxlength="4" placeholder="••••"></div>' +
       '<button class="btn btn-primary btn-block" onclick="App.addUser()">+ Adicionar usuário</button>'
     );
+    onRoleChange();
+  }
+
+  function onRoleChange(){
+    var papelEl = document.getElementById('nu-papel');
+    var field = document.getElementById('nu-filial-field');
+    if(!papelEl || !field) return;
+    field.style.display = (papelEl.value === 'comprador') ? 'none' : 'block';
   }
 
   function renderUsersList(){
     if(!users.length) return '<p class="hint">Nenhum usuário cadastrado ainda.</p>';
     return users.map(function(u){
       return '<div class="user-row">' +
-        '<div><div class="u-name">'+esc(u.nome)+(u.id===currentUser.id?' (você)':'')+'</div><div class="u-role">'+ROLE_LABEL[u.papel]+'</div></div>' +
+        '<div><div class="u-name">'+esc(u.nome)+(u.id===currentUser.id?' (você)':'')+'</div>' +
+          '<div class="u-role">'+ROLE_LABEL[u.papel]+
+            (u.papel==='comprador' ? ' &middot; todas as filiais' : (u.filial ? ' &middot; '+esc(filialLabel(u.filial)) : ' &middot; sem filial definida')) +
+          '</div></div>' +
         '<div class="u-actions">' +
           '<button class="btn btn-outline btn-sm" onclick="App.resetUserPin(\''+u.id+'\')">Redefinir PIN</button>' +
           '<button class="btn btn-ghost btn-sm" onclick="App.removeUser(\''+u.id+'\')">Remover</button>' +
@@ -858,7 +1156,13 @@
     var pin = normalizedPin(document.getElementById('nu-pin').value);
     if(!nome){ alert('Informe o nome.'); return; }
     if(!/^\d{4}$/.test(pin)){ alert('O PIN deve ter 4 números.'); return; }
-    users.push({ id:uid(), nome:nome, papel:papel, pin:pin });
+    var filial = '';
+    if(papel !== 'comprador'){
+      var fEl = document.getElementById('nu-filial');
+      filial = fEl ? fEl.value : '';
+      if(!filial){ alert('Selecione a filial deste usuário.'); return; }
+    }
+    users.push({ id:uid(), nome:nome, papel:papel, pin:pin, filial:filial });
     persistUsers();
     document.getElementById('nu-nome').value = '';
     document.getElementById('nu-pin').value = '';
@@ -934,10 +1238,9 @@
     document.getElementById('modalBackdrop').classList.add('open');
   }
   function closeModal(){
-    if(currentScanner){ try{ currentScanner.clear(); }catch(e){} currentScanner = null; }
     document.getElementById('modalBackdrop').classList.remove('open');
     document.getElementById('modalBody').innerHTML = '';
-    pendingPhoto = { expoNew:null, resolveProof:null, valNew:null };
+    pendingPhoto = { expoNew:null, resolveProof:null, valNew:null, placaNew:null, placaProof:null };
   }
 
   function thumbOrPlaceholder(foto, size){
@@ -956,12 +1259,17 @@
       '<div class="field"><label>Código de barras</label>' +
         '<div class="barcode-row">' +
           '<input type="text" id="f-barcode" inputmode="numeric" placeholder="Digite ou escaneie">' +
-          '<button type="button" class="scan-btn" onclick="App.scanInto(\'f-barcode\', true)">' + cameraIcon() + '</button>' +
+          '<button type="button" class="scan-btn" onclick="App.scanInto(\'f-barcode\', true, \'expo\')">' + cameraIcon() + '</button>' +
         '</div>' +
         '<div id="lookup-area"></div>' +
       '</div>' +
-      '<div class="field"><label>Nome do produto</label><input type="text" id="f-nome" placeholder="Preenchido automaticamente, se encontrado"></div>' +
-      '<div class="field"><label>Código interno</label><input type="text" id="f-codint" placeholder="Preenchido automaticamente, se encontrado"></div>' +
+      '<div class="field"><label>Nome do produto</label>' +
+        '<div class="ac-wrap">' +
+          '<input type="text" id="f-nome" autocomplete="off" placeholder="Digite parte do nome para buscar" oninput="App.onNomeInput(\'expo\')">' +
+          '<div id="ac-expo"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="field"><label>Código interno</label><input type="text" id="f-codint" autocomplete="off" placeholder="Digite o código interno para buscar"></div>' +
       '<div class="field"><label>Foto do produto</label>' +
         '<div class="photo-input-row" id="photo-row-new">' + thumbOrPlaceholder(null,48) +
           '<label class="file-label">Anexar foto<input type="file" accept="image/*" capture="environment" onchange="App.handlePhoto(event,\'expoNew\',\'photo-row-new\')"></label>' +
@@ -972,7 +1280,7 @@
       '</div>' +
       '<button class="btn btn-primary btn-block" onclick="App.submitNewExpo()">Registrar item pendente</button>'
     );
-    document.getElementById('f-barcode').addEventListener('blur', function(){ tryLookupInto(this.value, 'f-nome', 'photo-row-new', 'expoNew', 'lookup-area', 'f-codint'); });
+    bindLookupFields('expo');
   }
 
   function submitNewExpo(){
@@ -983,7 +1291,7 @@
     if(!barcode){ alert('Informe o código de barras.'); return; }
     if(!nome){ alert('Informe o nome do produto.'); return; }
     itemsExpo.unshift({
-      id:uid(), barcode:barcode, nome:nome, codigoInterno:codint, foto:pendingPhoto.expoNew||null,
+      id:uid(), filial:activeFilial, barcode:barcode, nome:nome, codigoInterno:codint, foto:pendingPhoto.expoNew||null,
       observacao:obs, status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome
     });
     persistExpo();
@@ -1075,8 +1383,13 @@
         '</div>' +
         '<div id="lookup-area-v"></div>' +
       '</div>' +
-      '<div class="field"><label>Nome do produto</label><input type="text" id="fv-nome" placeholder="Preenchido automaticamente, se encontrado"></div>' +
-      '<div class="field"><label>Código interno</label><input type="text" id="fv-codint" placeholder="Preenchido automaticamente, se encontrado"></div>' +
+      '<div class="field"><label>Nome do produto</label>' +
+        '<div class="ac-wrap">' +
+          '<input type="text" id="fv-nome" autocomplete="off" placeholder="Digite parte do nome para buscar" oninput="App.onNomeInput(\'val\')">' +
+          '<div id="ac-val"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="field"><label>Código interno</label><input type="text" id="fv-codint" autocomplete="off" placeholder="Digite o código interno para buscar"></div>' +
       '<div class="field"><label>Foto do produto</label>' +
         '<div class="photo-input-row" id="photo-row-valnew">' + thumbOrPlaceholder(null,48) +
           '<label class="file-label">Anexar foto<input type="file" accept="image/*" capture="environment" onchange="App.handlePhoto(event,\'valNew\',\'photo-row-valnew\')"></label>' +
@@ -1088,7 +1401,7 @@
       '</div>' +
       '<button class="btn btn-amber btn-block" onclick="App.submitNewVal()">Enviar para o comprador</button>'
     );
-    document.getElementById('fv-barcode').addEventListener('blur', function(){ tryLookupInto(this.value, 'fv-nome', 'photo-row-valnew', 'valNew', 'lookup-area-v', 'fv-codint'); });
+    bindLookupFields('val');
   }
 
   function submitNewVal(){
@@ -1102,7 +1415,7 @@
     if(!validade){ alert('Informe a data de validade.'); return; }
     if(!qtd || Number(qtd) <= 0){ alert('Informe a quantidade aproximada.'); return; }
     itemsVal.unshift({
-      id:uid(), barcode:barcode, nome:nome, codigoInterno:codint, foto:pendingPhoto.valNew||null,
+      id:uid(), filial:activeFilial, barcode:barcode, nome:nome, codigoInterno:codint, foto:pendingPhoto.valNew||null,
       validade:validade, quantidade:Number(qtd), reportadoEm:nowIso(), reportadoPor:currentUser.nome, status:'aguardando'
     });
     persistVal();
@@ -1145,7 +1458,7 @@
     item.rebaixadoPor = currentUser.nome;
     persistVal();
     itemsPlaca.unshift({
-      id:uid(), barcode:item.barcode, nome:item.nome, codigoInterno:item.codigoInterno||'', foto:item.foto||null,
+      id:uid(), filial:item.filial||activeFilial, barcode:item.barcode, nome:item.nome, codigoInterno:item.codigoInterno||'', foto:item.foto||null,
       infoPlaca:fmtMoney(item.novoPreco), observacao:obs, origem:'rebaixa', origemId:item.id,
       status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome
     });
@@ -1167,8 +1480,13 @@
         '</div>' +
         '<div id="lookup-area-p"></div>' +
       '</div>' +
-      '<div class="field"><label>Nome do produto</label><input type="text" id="fp-nome" placeholder="Preenchido automaticamente, se encontrado"></div>' +
-      '<div class="field"><label>Código interno</label><input type="text" id="fp-codint" placeholder="Preenchido automaticamente, se encontrado"></div>' +
+      '<div class="field"><label>Nome do produto</label>' +
+        '<div class="ac-wrap">' +
+          '<input type="text" id="fp-nome" autocomplete="off" placeholder="Digite parte do nome para buscar" oninput="App.onNomeInput(\'placa\')">' +
+          '<div id="ac-placa"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="field"><label>Código interno</label><input type="text" id="fp-codint" autocomplete="off" placeholder="Digite o código interno para buscar"></div>' +
       '<div class="field"><label>Foto do produto (opcional)</label>' +
         '<div class="photo-input-row" id="photo-row-placanew">' + thumbOrPlaceholder(null,48) +
           '<label class="file-label">Anexar foto<input type="file" accept="image/*" capture="environment" onchange="App.handlePhoto(event,\'placaNew\',\'photo-row-placanew\')"></label>' +
@@ -1178,7 +1496,7 @@
       '<div class="field"><label>Observação (opcional)</label><textarea id="fp-obs" placeholder="Ex.: ação de aniversário da loja."></textarea></div>' +
       '<button class="btn btn-green btn-block" onclick="App.submitNewPlaca()">Enviar para o marketing</button>'
     );
-    document.getElementById('fp-barcode').addEventListener('blur', function(){ tryLookupInto(this.value, 'fp-nome', 'photo-row-placanew', 'placaNew', 'lookup-area-p', 'fp-codint'); });
+    bindLookupFields('placa');
   }
 
   function submitNewPlaca(){
@@ -1191,7 +1509,7 @@
     if(!nome){ alert('Informe o nome do produto.'); return; }
     if(!info){ alert('Informe o que deve constar na placa (preço ou promoção).'); return; }
     itemsPlaca.unshift({
-      id:uid(), barcode:barcode, nome:nome, codigoInterno:codint, foto:pendingPhoto.placaNew||null,
+      id:uid(), filial:activeFilial, barcode:barcode, nome:nome, codigoInterno:codint, foto:pendingPhoto.placaNew||null,
       infoPlaca:info, observacao:obs, origem:'manual', status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome
     });
     persistPlaca();
@@ -1251,65 +1569,170 @@
     render();
   }
 
-  /* ---------- shared input handlers ---------- */
+  /* ---------- preenchimento automático dos formulários ----------
+     Um único mecanismo atende os três formulários (expo / validade / placa).
+     Entrada por código de barras, por código interno ou por nome. */
+  var FORM_CTX = {
+    expo:  { barcode:'f-barcode',  nome:'f-nome',  codint:'f-codint',  photoRow:'photo-row-new',      photoKey:'expoNew',  area:'lookup-area',   ac:'ac-expo'  },
+    val:   { barcode:'fv-barcode', nome:'fv-nome', codint:'fv-codint', photoRow:'photo-row-valnew',   photoKey:'valNew',   area:'lookup-area-v', ac:'ac-val'   },
+    placa: { barcode:'fp-barcode', nome:'fp-nome', codint:'fp-codint', photoRow:'photo-row-placanew', photoKey:'placaNew', area:'lookup-area-p', ac:'ac-placa' }
+  };
+
+  function ctxOf(key){ return FORM_CTX[key] || FORM_CTX.expo; }
+  function setVal(id, value){ var el = document.getElementById(id); if(el) el.value = value; }
+  function getVal(id){ var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+  function setArea(ctx, html){ var el = document.getElementById(ctx.area); if(el) el.innerHTML = html || ''; }
+
+  function setFormPhoto(ctx, foto){
+    if(!foto) return;
+    pendingPhoto[ctx.photoKey] = foto;
+    var row = document.getElementById(ctx.photoRow);
+    if(row) row.innerHTML = thumbOrPlaceholder(foto,48) +
+      '<label class="file-label">Trocar foto<input type="file" accept="image/*" capture="environment" onchange="App.handlePhoto(event,\''+ctx.photoKey+'\',\''+ctx.photoRow+'\')"></label>';
+  }
+
+  /* Preenche TODOS os campos a partir de um produto da base. */
+  function applyProduct(ctxKey, product, statusMsg){
+    var ctx = ctxOf(ctxKey);
+    if(!product) return;
+    if(product.barcode) setVal(ctx.barcode, product.barcode);
+    if(product.descricao) setVal(ctx.nome, product.descricao);
+    if(product.codigoInterno) setVal(ctx.codint, product.codigoInterno);
+    setFormPhoto(ctx, product.foto);
+    setArea(ctx, '<div class="lookup-status">' + (statusMsg || 'Item encontrado na base de produtos ✓') + '</div>');
+    closeAutocomplete(ctxKey);
+  }
+
   function scanInto(inputId, alsoLookup, context){
     openScanner(function(text){
+      var code = String(text||'').trim();
       var el = document.getElementById(inputId);
-      if(el) el.value = text;
-      if(alsoLookup){
-        if(context==='val'){
-          tryLookupInto(text, 'fv-nome', 'photo-row-valnew', 'valNew', 'lookup-area-v', 'fv-codint');
-        } else if(context==='placa'){
-          tryLookupInto(text, 'fp-nome', 'photo-row-placanew', 'placaNew', 'lookup-area-p', 'fp-codint');
-        } else {
-          tryLookupInto(text, 'f-nome', 'photo-row-new', 'expoNew', 'lookup-area', 'f-codint');
-        }
-      }
-      if(el){
-        var evt = new Event('input', {bubbles:true});
-        el.dispatchEvent(evt);
-      }
+      if(el) el.value = code;
+      if(alsoLookup) lookupBarcode(context || 'expo', code);
     });
   }
 
-  function tryLookupInto(barcode, nomeFieldId, photoRowId, photoKey, areaId, internoFieldId){
-    barcode = (barcode||'').trim();
+  /* Busca por código de barras: base interna primeiro, depois base pública. */
+  function lookupBarcode(ctxKey, barcode){
+    var ctx = ctxOf(ctxKey);
+    barcode = String(barcode||'').trim();
     if(!barcode) return;
-    var area = document.getElementById(areaId);
+    setVal(ctx.barcode, barcode);
+
     var internal = lookupInternal(barcode);
     if(internal){
-      if(area) area.innerHTML = '<div class="lookup-status">Item encontrado na base de produtos da loja ✓</div>';
-      var nomeFieldI = document.getElementById(nomeFieldId);
-      if(nomeFieldI && internal.descricao && !nomeFieldI.value) nomeFieldI.value = internal.descricao;
-      if(internoFieldId){
-        var intField = document.getElementById(internoFieldId);
-        if(intField && internal.codigoInterno) intField.value = internal.codigoInterno;
-      }
-      if(internal.foto){
-        pendingPhoto[photoKey] = internal.foto;
-        var rowI = document.getElementById(photoRowId);
-        if(rowI) rowI.innerHTML = thumbOrPlaceholder(internal.foto,48) +
-          '<label class="file-label">Trocar foto<input type="file" accept="image/*" capture="environment" onchange="App.handlePhoto(event,\''+photoKey+'\',\''+photoRowId+'\')"></label>';
+      applyProduct(ctxKey, {
+        barcode: barcode,
+        descricao: internal.descricao,
+        codigoInterno: internal.codigoInterno,
+        foto: internal.foto
+      }, 'Item encontrado na base de produtos ✓');
+      if(!internal.descricao){
+        setArea(ctx, '<div class="lookup-status">Código encontrado na base, mas sem descrição cadastrada. Digite o nome manualmente ou reimporte a planilha de produtos.</div>');
       }
       return;
     }
-    if(area) area.innerHTML = '<div class="lookup-status">Buscando produto na base pública…</div>';
+
+    setArea(ctx, '<div class="lookup-status">Buscando produto na base pública…</div>');
     fetchProductInfo(barcode).then(function(info){
-      if(!area) return;
       if(!info){
-        area.innerHTML = '<div class="lookup-status">Não encontramos esse item automaticamente. Preencha o nome e a foto manualmente.</div>';
+        setArea(ctx, '<div class="lookup-status">Não encontramos esse item automaticamente. Preencha o nome e a foto manualmente.</div>');
         return;
       }
-      area.innerHTML = '<div class="lookup-status">Produto encontrado na base pública ✓</div>';
-      var nomeField = document.getElementById(nomeFieldId);
-      if(nomeField && info.nome && !nomeField.value) nomeField.value = info.nome;
-      if(info.foto){
-        pendingPhoto[photoKey] = info.foto;
-        var row = document.getElementById(photoRowId);
-        if(row) row.innerHTML = thumbOrPlaceholder(info.foto,48) +
-          '<label class="file-label">Trocar foto<input type="file" accept="image/*" capture="environment" onchange="App.handlePhoto(event,\''+photoKey+'\',\''+photoRowId+'\')"></label>';
-      }
+      if(info.nome && !getVal(ctx.nome)) setVal(ctx.nome, info.nome);
+      setFormPhoto(ctx, info.foto);
+      setArea(ctx, '<div class="lookup-status">Produto encontrado na base pública ✓</div>');
     });
+  }
+
+  /* Busca pelo código interno digitado. */
+  function lookupInterno(ctxKey){
+    var ctx = ctxOf(ctxKey);
+    var codigo = getVal(ctx.codint);
+    if(!codigo) return;
+    var found = lookupByInterno(codigo);
+    if(found){
+      applyProduct(ctxKey, found, 'Item encontrado pelo código interno ✓');
+    } else {
+      setArea(ctx, '<div class="lookup-status">Código interno não encontrado na base de produtos.</div>');
+    }
+  }
+
+  /* ---------- autocomplete por nome ---------- */
+  var acTimer = null;
+
+  function closeAutocomplete(ctxKey){
+    var el = document.getElementById(ctxOf(ctxKey).ac);
+    if(el) el.innerHTML = '';
+  }
+
+  function onNomeInput(ctxKey){
+    if(acTimer) clearTimeout(acTimer);
+    acTimer = setTimeout(function(){ renderAutocomplete(ctxKey); }, 160);
+  }
+
+  function renderAutocomplete(ctxKey){
+    var ctx = ctxOf(ctxKey);
+    var box = document.getElementById(ctx.ac);
+    if(!box) return;
+    var q = getVal(ctx.nome);
+    if(q.length < 2){ box.innerHTML = ''; return; }
+
+    var res = searchProducts(q, AC_LIMIT);
+    if(!res.list.length){
+      box.innerHTML = '';
+      return;
+    }
+    var html = '<div class="ac-list">' + res.list.map(function(p){
+      return '<div class="ac-item" onclick="App.pickProduct(\''+ctxKey+'\',\''+esc(p.barcode)+'\')">' +
+        '<div class="ac-nome">'+esc(p.descricao || '(sem descrição)')+'</div>' +
+        '<div class="ac-meta">'+esc(p.barcode)+(p.codigoInterno?' &middot; interno '+esc(p.codigoInterno):'')+'</div>' +
+      '</div>';
+    }).join('');
+    if(res.total > res.list.length){
+      html += '<div class="ac-more">+'+(res.total - res.list.length)+' outro(s) item(ns). Digite mais para refinar.</div>';
+    }
+    html += '</div>';
+    box.innerHTML = html;
+  }
+
+  /* Liga os eventos dos campos de um formulário recém-aberto. */
+  function bindLookupFields(ctxKey){
+    var ctx = ctxOf(ctxKey);
+
+    var bc = document.getElementById(ctx.barcode);
+    if(bc){
+      bc.addEventListener('blur', function(){ lookupBarcode(ctxKey, this.value); });
+      bc.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); lookupBarcode(ctxKey, this.value); }
+      });
+    }
+
+    var ci = document.getElementById(ctx.codint);
+    if(ci){
+      ci.addEventListener('blur', function(){ lookupInterno(ctxKey); });
+      ci.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); lookupInterno(ctxKey); }
+      });
+    }
+
+    var nm = document.getElementById(ctx.nome);
+    if(nm){
+      nm.addEventListener('keydown', function(e){
+        if(e.key === 'Escape') closeAutocomplete(ctxKey);
+      });
+    }
+  }
+
+  function pickProduct(ctxKey, barcode){
+    var p = productDB[barcode];
+    if(!p) return;
+    applyProduct(ctxKey, {
+      barcode: barcode,
+      descricao: p.descricao,
+      codigoInterno: p.codigoInterno,
+      foto: p.foto
+    }, 'Item selecionado da base de produtos ✓');
   }
 
   function handlePhoto(evt, key, rowId){
@@ -1328,6 +1751,7 @@
     var gated = renderGate();
     if(gated) return;
     renderUserBadge();
+    renderFilialBar();
     renderTabs();
     renderDbBar();
     renderNotices();
@@ -1349,12 +1773,12 @@
   }
 
   function renderTabs(){
-    var pendCount = itemsExpo.filter(function(i){return i.status==='pendente';}).length;
-    var aguardCount = itemsVal.filter(function(i){return i.status==='aguardando';}).length;
+    var pendCount = itemsExpo.filter(function(i){return inActiveFilial(i) && i.status==='pendente';}).length;
+    var aguardCount = itemsVal.filter(function(i){return inActiveFilial(i) && i.status==='aguardando';}).length;
     var placaCount;
-    if(role === 'marketing') placaCount = itemsPlaca.filter(function(i){return i.status==='pendente';}).length;
-    else if(role === 'loja') placaCount = itemsPlaca.filter(function(i){return i.status==='pronta';}).length;
-    else placaCount = itemsPlaca.filter(function(i){return i.status==='pendente' || i.status==='pronta';}).length;
+    if(role === 'marketing') placaCount = itemsPlaca.filter(function(i){return inActiveFilial(i) && i.status==='pendente';}).length;
+    else if(role === 'loja') placaCount = itemsPlaca.filter(function(i){return inActiveFilial(i) && i.status==='pronta';}).length;
+    else placaCount = itemsPlaca.filter(function(i){return inActiveFilial(i) && (i.status==='pendente' || i.status==='pronta');}).length;
 
     var visible = visibleTabsFor(role);
     var el = document.getElementById('tabs');
@@ -1371,14 +1795,46 @@
     el.innerHTML = html;
   }
 
+  function renderFilialBar(){
+    var el = document.getElementById('filialBar');
+    if(!el) return;
+    if(!currentUser){ el.innerHTML = ''; return; }
+
+    if(isComprador()){
+      var opts = FILIAIS.map(function(f){
+        return '<option value="'+f.id+'"'+(activeFilial===f.id?' selected':'')+'>'+esc(f.label)+'</option>';
+      }).join('');
+      el.innerHTML =
+        '<div class="filial-bar">' +
+          '<label for="filial-select">Filial</label>' +
+          '<select id="filial-select" onchange="App.setActiveFilial(this.value)">'+opts+'</select>' +
+          '<span class="hint" style="margin:0;">Você está vendo e registrando itens desta filial.</span>' +
+        '</div>';
+    } else {
+      el.innerHTML =
+        '<div class="filial-bar">' +
+          '<label>Filial</label>' +
+          '<span class="filial-tag">'+esc(filialLabel(activeFilial))+'</span>' +
+        '</div>';
+    }
+  }
+
   function renderNotices(){
     var el = document.getElementById('notices');
     var html = '';
     if(syncError){
       html += '<div class="notice notice-local">⚠ '+esc(syncError)+'</div>';
     }
+    if(isComprador()){
+      var semFilial = itemsExpo.filter(function(i){ return !i.filial; }).length +
+                      itemsVal.filter(function(i){ return !i.filial; }).length +
+                      itemsPlaca.filter(function(i){ return !i.filial; }).length;
+      if(semFilial){
+        html += '<div class="notice notice-local">'+semFilial+' item(ns) foram registrados antes da separação por filial e aparecem nas duas lojas. Conforme forem resolvidos, eles somem naturalmente.</div>';
+      }
+    }
     if(activeTab==='val'){
-      var urgent = itemsVal.filter(function(i){ return i.status==='aguardando' && daysUntil(i.validade) <= 3; });
+      var urgent = itemsVal.filter(function(i){ return inActiveFilial(i) && i.status==='aguardando' && daysUntil(i.validade) <= 3; });
       if(urgent.length){
         html += '<div class="notice notice-urgent">⚠ ' + urgent.length + ' item(ns) aguardando rebaixa vencem em até 3 dias.</div>';
       }
@@ -1397,6 +1853,7 @@
 
   function renderExpoTab(){
     var list = itemsExpo.filter(function(i){
+      if(!inActiveFilial(i)) return false;
       if(expoFilter==='todos') return true;
       return i.status === expoFilter;
     });
@@ -1459,6 +1916,7 @@
 
   function renderValTab(){
     var list = itemsVal.filter(function(i){
+      if(!inActiveFilial(i)) return false;
       if(valFilter==='todos') return true;
       return i.status === valFilter;
     });
@@ -1521,6 +1979,7 @@
 
   function renderPlacaTab(){
     var list = itemsPlaca.filter(function(i){
+      if(!inActiveFilial(i)) return false;
       if(placaFilter==='todos') return true;
       return i.status === placaFilter;
     });
@@ -1624,6 +2083,12 @@
     confirmImport:confirmImport,
     clearDB:clearDB,
     scanInto:scanInto,
+    closeScanner:closeScanner,
+    scanFromFile:scanFromFile,
+    onNomeInput:onNomeInput,
+    pickProduct:pickProduct,
+    setActiveFilial:setActiveFilial,
+    onRoleChange:onRoleChange,
     handlePhoto:handlePhoto,
     submitApiUrl:submitApiUrl,
     retryApi:retryApi,
