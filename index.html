@@ -660,22 +660,24 @@
     });
   }
 
-  /* ---------- product lookup (best effort, public database) ---------- */
+  /* ---------- product lookup (base nacional de produtos, via Cosmos/Bluesoft) ----------
+     A chamada passa pelo Apps Script (não vai direto ao Cosmos) para que o
+     token de acesso fique guardado no backend, nunca exposto no navegador. */
   function fetchProductInfo(barcode){
-    if(!barcode || !window.fetch) return Promise.resolve(null);
+    if(!barcode || !SHEETS_API_URL) return Promise.resolve(null);
+    var sep = SHEETS_API_URL.indexOf('?') === -1 ? '?' : '&';
+    var url = SHEETS_API_URL + sep + 'action=lookupProduto&barcode=' + encodeURIComponent(barcode);
     var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var t = ctrl ? setTimeout(function(){ ctrl.abort(); }, 6000) : null;
-    return fetch('https://world.openfoodfacts.org/api/v0/product/' + encodeURIComponent(barcode) + '.json',
-      ctrl ? {signal:ctrl.signal} : {}
-    ).then(function(res){
+    var t = ctrl ? setTimeout(function(){ ctrl.abort(); }, 8000) : null;
+    return fetch(url, ctrl ? {signal:ctrl.signal} : {}).then(function(res){
       if(t) clearTimeout(t);
       if(!res.ok) return null;
       return res.json();
     }).then(function(data){
-      if(!data || data.status !== 1 || !data.product) return null;
-      var p = data.product;
-      var nome = p.product_name_pt || p.product_name || '';
-      var foto = p.image_front_small_url || p.image_front_url || p.image_url || null;
+      if(!data || data.ok === false || !data.produto) return null;
+      var p = data.produto;
+      var nome = p.nome || '';
+      var foto = p.foto || null;
       if(!nome && !foto) return null;
       return { nome:nome, foto:foto };
     }).catch(function(){ if(t) clearTimeout(t); return null; });
@@ -1639,7 +1641,7 @@
       return;
     }
 
-    setArea(ctx, '<div class="lookup-status">Buscando produto na base pública…</div>');
+    setArea(ctx, '<div class="lookup-status">Buscando produto na base nacional…</div>');
     fetchProductInfo(barcode).then(function(info){
       if(!info){
         setArea(ctx, '<div class="lookup-status">Não encontramos esse item automaticamente. Preencha o nome e a foto manualmente.</div>');
@@ -1647,7 +1649,7 @@
       }
       if(info.nome && !getVal(ctx.nome)) setVal(ctx.nome, info.nome);
       setFormPhoto(ctx, info.foto);
-      setArea(ctx, '<div class="lookup-status">Produto encontrado na base pública ✓</div>');
+      setArea(ctx, '<div class="lookup-status">Produto encontrado na base nacional ✓</div>');
     });
   }
 
