@@ -1110,11 +1110,11 @@
       '<div class="field"><label>Papel</label><select id="nu-papel" onchange="App.onRoleChange()" style="width:100%;font-family:var(--font-body);font-size:14px;padding:10px 11px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);">' +
         '<option value="comprador">Comprador</option><option value="loja">Loja</option><option value="marketing">Marketing</option>' +
       '</select></div>' +
-      '<div class="field" id="nu-filial-field" style="display:none;"><label>Filial</label>' +
+      '<div class="field" id="nu-filial-field"><label>Filial</label>' +
         '<select id="nu-filial" style="width:100%;font-family:var(--font-body);font-size:14px;padding:10px 11px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);">' +
           FILIAIS.map(function(f){ return '<option value="'+f.id+'">'+esc(f.label)+'</option>'; }).join('') +
         '</select>' +
-        '<p class="hint" style="margin-top:6px;">Loja e Marketing só enxergam as demandas da filial escolhida. Compradores têm acesso às duas.</p>' +
+        '<p class="hint" id="nu-filial-hint" style="margin-top:6px;">Loja e Marketing só enxergam as demandas da filial escolhida.</p>' +
       '</div>' +
       '<div class="field"><label>PIN de 4 dígitos</label><input type="text" class="pin-input" id="nu-pin" inputmode="numeric" maxlength="4" placeholder="••••"></div>' +
       '<button class="btn btn-primary btn-block" onclick="App.addUser()">+ Adicionar usuário</button>'
@@ -1124,9 +1124,15 @@
 
   function onRoleChange(){
     var papelEl = document.getElementById('nu-papel');
-    var field = document.getElementById('nu-filial-field');
-    if(!papelEl || !field) return;
-    field.style.display = (papelEl.value === 'comprador') ? 'none' : 'block';
+    var filialEl = document.getElementById('nu-filial');
+    var hint = document.getElementById('nu-filial-hint');
+    if(!papelEl || !filialEl) return;
+    var isComp = papelEl.value === 'comprador';
+    filialEl.disabled = isComp;
+    filialEl.style.opacity = isComp ? '0.45' : '1';
+    if(hint) hint.textContent = isComp
+      ? 'Compradores têm acesso automático às duas filiais — este campo é ignorado.'
+      : 'Loja e Marketing só enxergam as demandas da filial escolhida.';
   }
 
   function renderUsersList(){
