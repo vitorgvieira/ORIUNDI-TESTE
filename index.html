@@ -976,7 +976,11 @@
     saveApiUrl(val);
     apiLoading = true; apiOk = true;
     render();
-    loadAll().then(function(){ apiLoading = false; render(); });
+    loadAll().then(function(){
+      apiLoading = false;
+      if(apiOk) tryRestoreSession();
+      render();
+    });
   }
 
   function renderLoadingScreen(){
@@ -1000,12 +1004,19 @@
 
   function retryApi(){
     apiLoading = true; render();
-    loadAll().then(function(){ apiLoading = false; render(); });
+    loadAll().then(function(){
+      apiLoading = false;
+      if(apiOk) tryRestoreSession();
+      render();
+    });
   }
 
   function changeApiUrl(){
     clearApiUrl();
     apiOk = true; apiError = '';
+    currentUser = null; role = null;
+    stopPolling();
+    try{ localStorage.removeItem('giro-user-id'); }catch(e){}
     render();
   }
 
@@ -1021,6 +1032,72 @@
     '</div>';
   }
 
+  /* ---------- sessão (persistida no dispositivo) e atualização automática ---------- */
+  var POLL_INTERVAL_MS = 25000;
+  var pollTimer = null;
+
+  function startPolling(){
+    stopPolling();
+    pollTimer = setInterval(pollRefresh, POLL_INTERVAL_MS);
+  }
+  function stopPolling(){
+    if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+  }
+  /* Busca dados novos em segundo plano, sem tirar a pessoa da tela caso
+     a rede falhe momentaneamente (só tenta de novo no próximo ciclo). */
+  function pollRefresh(){
+    if(!SHEETS_API_URL || !currentUser) return;
+    apiGet('getAll').then(function(all){
+      itemsExpo = all.itensExpo || [];
+      itemsVal = all.itensVal || [];
+      itemsPlaca = all.itensPlaca || [];
+      users = all.usuarios || [];
+      rebuildProductIndex();
+      if(syncError) syncError = '';
+      render();
+    }).catch(function(){ /* tenta de novo no próximo ciclo */ });
+  }
+
+  /* Aplica o login (usado no cadastro inicial, no login manual e na
+     restauração automática ao reabrir a página) e lembra a sessão
+     neste dispositivo, para não pedir PIN de novo a cada recarregamento. */
+  function applyLogin(user){
+    currentUser = user;
+    role = user.papel;
+
+    var allowed = userFiliais(user);
+    if(!allowed.length){
+      authError = 'Seu acesso ainda não tem uma filial definida. Peça para um Comprador ajustar seu cadastro em "Usuários".';
+      currentUser = null; role = null;
+      return false;
+    }
+    if(user.papel === 'comprador'){
+      var saved = null;
+      try{ saved = localStorage.getItem('giro-filial'); }catch(e){}
+      activeFilial = (saved && allowed.indexOf(saved) !== -1) ? saved : allowed[0];
+    } else {
+      activeFilial = allowed[0];
+    }
+
+    var visible = visibleTabsFor(role);
+    if(visible.indexOf(activeTab) === -1) activeTab = visible[0];
+
+    try{ localStorage.setItem('giro-user-id', user.id); }catch(e){}
+    startPolling();
+    return true;
+  }
+
+  /* Ao abrir a página, tenta continuar logado como quem usou este
+     dispositivo pela última vez (se o usuário ainda existir). */
+  function tryRestoreSession(){
+    if(currentUser) return;
+    var savedId = null;
+    try{ savedId = localStorage.getItem('giro-user-id'); }catch(e){}
+    if(!savedId) return;
+    var user = users.filter(function(u){ return u.id === savedId; })[0];
+    if(user) applyLogin(user);
+  }
+
   function submitSetup(){
     var nome = document.getElementById('su-nome').value.trim();
     var pin = normalizedPin(document.getElementById('su-pin').value);
@@ -1030,9 +1107,7 @@
     users = [user];
     persistUsers();
     authError = '';
-    currentUser = user;
-    role = currentUser.papel;
-    activeFilial = FILIAIS[0].id;
+    applyLogin(user);
     render();
   }
 
@@ -1067,32 +1142,15 @@
       return;
     }
     authError = '';
-    currentUser = user;
-    role = currentUser.papel;
-
-    var allowed = userFiliais(user);
-    if(!allowed.length){
-      authError = 'Seu acesso ainda não tem uma filial definida. Peça para um Comprador ajustar seu cadastro em "Usuários".';
-      currentUser = null; role = null;
-      renderGate();
-      return;
-    }
-    if(user.papel === 'comprador'){
-      var saved = null;
-      try{ saved = localStorage.getItem('giro-filial'); }catch(e){}
-      activeFilial = (saved && allowed.indexOf(saved) !== -1) ? saved : allowed[0];
-    } else {
-      activeFilial = allowed[0];
-    }
-
-    var visible = visibleTabsFor(role);
-    if(visible.indexOf(activeTab) === -1) activeTab = visible[0];
+    if(!applyLogin(user)){ renderGate(); return; }
     render();
   }
 
   function logout(){
     currentUser = null;
     role = null;
+    stopPolling();
+    try{ localStorage.removeItem('giro-user-id'); }catch(e){}
     render();
   }
 
@@ -2107,7 +2165,11 @@
   loadApiUrl();
   if(SHEETS_API_URL){
     apiLoading = true;
-    loadAll().then(function(){ apiLoading = false; render(); });
+    loadAll().then(function(){
+      apiLoading = false;
+      if(apiOk) tryRestoreSession();
+      render();
+    });
   }
   render();
 
