@@ -1686,27 +1686,40 @@
     setVal(ctx.barcode, barcode);
 
     var internal = lookupInternal(barcode);
-    if(internal){
+
+    if(internal && internal.descricao && internal.foto){
+      // Base interna já tem tudo: nenhuma consulta externa é necessária.
       applyProduct(ctxKey, {
         barcode: barcode,
         descricao: internal.descricao,
         codigoInterno: internal.codigoInterno,
         foto: internal.foto
       }, 'Item encontrado na base de produtos ✓');
-      if(!internal.descricao){
-        setArea(ctx, '<div class="lookup-status">Código encontrado na base, mas sem descrição cadastrada. Digite o nome manualmente ou reimporte a planilha de produtos.</div>');
-      }
       return;
     }
 
-    setArea(ctx, '<div class="lookup-status">Buscando produto na base nacional…</div>');
+    // Preenche o que já existe na base interna (nome e/ou código interno),
+    // mas como falta nome e/ou foto, complementa consultando a base nacional.
+    if(internal){
+      if(internal.descricao) setVal(ctx.nome, internal.descricao);
+      if(internal.codigoInterno) setVal(ctx.codint, internal.codigoInterno);
+      if(internal.foto) setFormPhoto(ctx, internal.foto);
+    }
+
+    setArea(ctx, '<div class="lookup-status">Buscando '+(internal && internal.descricao ? 'foto' : 'produto')+' na base nacional…</div>');
     fetchProductInfo(barcode).then(function(info){
       if(!info){
-        setArea(ctx, '<div class="lookup-status">Não encontramos esse item automaticamente. Preencha o nome e a foto manualmente.</div>');
+        if(internal && internal.descricao){
+          setArea(ctx, '<div class="lookup-status">Item encontrado na base de produtos (sem foto disponível) ✓</div>');
+        } else if(internal){
+          setArea(ctx, '<div class="lookup-status">Código encontrado na base, mas sem descrição cadastrada. Digite o nome manualmente ou reimporte a planilha de produtos.</div>');
+        } else {
+          setArea(ctx, '<div class="lookup-status">Não encontramos esse item automaticamente. Preencha o nome e a foto manualmente.</div>');
+        }
         return;
       }
       if(info.nome && !getVal(ctx.nome)) setVal(ctx.nome, info.nome);
-      setFormPhoto(ctx, info.foto);
+      if(info.foto) setFormPhoto(ctx, info.foto);
       setArea(ctx, '<div class="lookup-status">Produto encontrado na base nacional ✓</div>');
     });
   }
@@ -1717,8 +1730,8 @@
     var codigo = getVal(ctx.codint);
     if(!codigo) return;
     var found = lookupByInterno(codigo);
-    if(found){
-      applyProduct(ctxKey, found, 'Item encontrado pelo código interno ✓');
+    if(found && found.barcode){
+      lookupBarcode(ctxKey, found.barcode);
     } else {
       setArea(ctx, '<div class="lookup-status">Código interno não encontrado na base de produtos.</div>');
     }
@@ -1793,12 +1806,8 @@
   function pickProduct(ctxKey, barcode){
     var p = productDB[barcode];
     if(!p) return;
-    applyProduct(ctxKey, {
-      barcode: barcode,
-      descricao: p.descricao,
-      codigoInterno: p.codigoInterno,
-      foto: p.foto
-    }, 'Item selecionado da base de produtos ✓');
+    closeAutocomplete(ctxKey);
+    lookupBarcode(ctxKey, barcode);
   }
 
   function handlePhoto(evt, key, rowId){
