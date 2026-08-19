@@ -9,6 +9,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
 <style>
   :root{
     --bg:#F6F6F7;
@@ -172,6 +174,12 @@
   .card-obs{font-size:12.5px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
   .card-meta{font-size:11.5px;color:var(--ink-faint);margin-top:8px;font-family:var(--font-mono);}
   .card-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .pdf-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 2px 12px 2px;flex-wrap:wrap;
+  }
+  .pdf-selall{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft);}
+  .pdf-check{margin-right:10px;margin-top:3px;flex-shrink:0;width:16px;height:16px;}
   .proof-row{display:flex;gap:8px;margin-top:10px;}
   .proof-thumb{width:44px;height:44px;border-radius:9px;object-fit:cover;border:1px solid var(--line);}
 
@@ -403,6 +411,8 @@
   var itemsPlaca = [];
   var productDB = {};
   var pendingImport = null;
+  var placaSelecionadas = {}; // { id: true }
+  var QR_LINK_PADRAO = 'https://www.instagram.com/oriundi_'; // conferir/trocar se o handle estiver errado
   var activeFilial = null;
   var currentScanner = null;
   var pendingPhoto = { expoNew:null, resolveProof:null, valNew:null, placaNew:null, placaProof:null };
@@ -1503,6 +1513,7 @@
         'Quantidade aproximada: ' + esc(item.quantidade) + ' un.<br>' +
         'Reportado pela loja em ' + fmtDateTime(item.reportadoEm) +
       '</div>' +
+      '<div class="field"><label>Preço atual na etiqueta (R$) — opcional, usado na placa "De:"</label><input type="number" id="fr-precode" min="0" step="0.01" placeholder="Ex.: 6.99"></div>' +
       '<div class="field"><label>Novo preço (R$)</label><input type="number" id="fr-preco" min="0" step="0.01" placeholder="Ex.: 4.99"></div>' +
       '<div class="field"><label>Orientação para a loja (opcional)</label>' +
         '<textarea id="fr-obs" placeholder="Ex.: rebaixar e colocar em destaque na ponta de gôndola."></textarea>' +
@@ -1514,6 +1525,7 @@
   function submitRebaixa(id){
     var item = itemsVal.filter(function(i){ return i.id===id; })[0];
     if(!item) return;
+    var precoDeStr = document.getElementById('fr-precode').value;
     var preco = document.getElementById('fr-preco').value;
     var obs = document.getElementById('fr-obs').value.trim();
     if(!preco || Number(preco) <= 0){ alert('Informe o novo preço.'); return; }
@@ -1526,6 +1538,7 @@
     itemsPlaca.unshift({
       id:uid(), filial:item.filial||activeFilial, barcode:item.barcode, nome:item.nome, codigoInterno:item.codigoInterno||'', foto:item.foto||null,
       infoPlaca:fmtMoney(item.novoPreco), observacao:obs, origem:'rebaixa', origemId:item.id,
+      precoDe: precoDeStr ? Number(precoDeStr) : '', precoPor: Number(preco),
       status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome
     });
     persistPlaca();
@@ -1558,7 +1571,11 @@
           '<label class="file-label">Anexar foto<input type="file" accept="image/*" capture="environment" onchange="App.handlePhoto(event,\'placaNew\',\'photo-row-placanew\')"></label>' +
         '</div>' +
       '</div>' +
-      '<div class="field"><label>Informação para a placa</label><input type="text" id="fp-info" placeholder="Ex.: R$ 4,99 ou Leve 3 Pague 2"></div>' +
+      '<div class="field-row" style="display:flex;gap:10px;">' +
+        '<div class="field" style="flex:1;"><label>Preço De (opcional)</label><input type="number" id="fp-precode" min="0" step="0.01" placeholder="Ex.: 6.99"></div>' +
+        '<div class="field" style="flex:1;"><label>Preço Por (opcional)</label><input type="number" id="fp-precopor" min="0" step="0.01" placeholder="Ex.: 4.99"></div>' +
+      '</div>' +
+      '<div class="field"><label>Informação para a placa</label><input type="text" id="fp-info" placeholder="Ex.: Leve 3 Pague 2 (se não for só preço)"></div>' +
       '<div class="field"><label>Observação (opcional)</label><textarea id="fp-obs" placeholder="Ex.: ação de aniversário da loja."></textarea></div>' +
       '<button class="btn btn-green btn-block" onclick="App.submitNewPlaca()">Enviar para o marketing</button>'
     );
@@ -1569,14 +1586,17 @@
     var barcode = document.getElementById('fp-barcode').value.trim();
     var nome = document.getElementById('fp-nome').value.trim();
     var codint = document.getElementById('fp-codint').value.trim();
+    var precoDeStr = document.getElementById('fp-precode').value;
+    var precoPorStr = document.getElementById('fp-precopor').value;
     var info = document.getElementById('fp-info').value.trim();
     var obs = document.getElementById('fp-obs').value.trim();
     if(!barcode){ alert('Informe o código de barras.'); return; }
     if(!nome){ alert('Informe o nome do produto.'); return; }
-    if(!info){ alert('Informe o que deve constar na placa (preço ou promoção).'); return; }
+    if(!info && !precoPorStr){ alert('Informe o preço Por ou o que deve constar na placa.'); return; }
     itemsPlaca.unshift({
       id:uid(), filial:activeFilial, barcode:barcode, nome:nome, codigoInterno:codint, foto:pendingPhoto.placaNew||null,
-      infoPlaca:info, observacao:obs, origem:'manual', status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome
+      infoPlaca:info, observacao:obs, origem:'manual', status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome,
+      precoDe: precoDeStr ? Number(precoDeStr) : '', precoPor: precoPorStr ? Number(precoPorStr) : ''
     });
     persistPlaca();
     closeModal();
@@ -1588,6 +1608,175 @@
     itemsPlaca = itemsPlaca.filter(function(i){ return i.id !== id; });
     persistPlaca();
     render();
+  }
+
+  /* ---------- geração de PDF das placas promocionais ----------
+     Layout baseado no modelo físico da Oriundi: faixa vermelha "OFERTA",
+     preço De/Por, nome do produto, validade, redes sociais e QR code.
+     Duas placas lado a lado por folha A4, para imprimir e recortar. */
+  var PDF_RED = [244, 0, 0];
+  var PDF_GRAY = [83, 85, 84];
+  var PDF_INK = [28, 28, 30];
+
+  function desenharQR_(doc, texto, x, y, tamanho){
+    if(typeof qrcode === 'undefined') return;
+    try{
+      var qr = qrcode(0, 'M');
+      qr.addData(texto);
+      qr.make();
+      var n = qr.getModuleCount();
+      var cell = tamanho / n;
+      doc.setFillColor(255,255,255);
+      doc.rect(x, y, tamanho, tamanho, 'F');
+      doc.setFillColor(0,0,0);
+      for(var r=0;r<n;r++){
+        for(var c=0;c<n;c++){
+          if(qr.isDark(r,c)) doc.rect(x + c*cell, y + r*cell, cell + 0.05, cell + 0.05, 'F');
+        }
+      }
+    }catch(e){ /* segue sem o QR se algo der errado */ }
+  }
+
+  function desenharPlacaPDF_(doc, item, x, y, w, h){
+    // moldura
+    doc.setDrawColor(220,220,220);
+    doc.setLineWidth(0.2);
+    doc.rect(x, y, w, h);
+
+    // faixa vermelha "OFERTA"
+    var faixaH = h * 0.15;
+    doc.setFillColor(PDF_RED[0],PDF_RED[1],PDF_RED[2]);
+    doc.rect(x, y, w, faixaH, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(Math.max(20, w*0.42));
+    doc.text('OFERTA', x + w/2, y + faixaH/2 + faixaH*0.16, {align:'center'});
+
+    var cursorY = y + faixaH + h*0.045;
+    var padX = w * 0.08;
+    var innerW = w - padX*2;
+
+    // DE: preço antigo (se houver)
+    if(item.precoDe){
+      doc.setTextColor(PDF_RED[0],PDF_RED[1],PDF_RED[2]);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(w*0.075);
+      doc.text('DE:', x + padX, cursorY + h*0.02);
+      doc.setTextColor(PDF_INK[0],PDF_INK[1],PDF_INK[2]);
+      doc.setFontSize(w*0.13);
+      doc.text(fmtMoney(item.precoDe).replace('R$ ',''), x + padX + w*0.13, cursorY + h*0.03);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(w*0.06);
+      doc.text('UNID.', x + padX + w*0.13 + doc.getTextWidth(fmtMoney(item.precoDe).replace('R$ ','')) * (w*0.13/doc.internal.scaleFactor) + 4, cursorY + h*0.03);
+      cursorY += h*0.075;
+    }
+
+    // Nome do produto
+    doc.setTextColor(PDF_INK[0],PDF_INK[1],PDF_INK[2]);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(w*0.085);
+    var nomeLines = doc.splitTextToSize(String(item.nome||'').toUpperCase(), innerW);
+    nomeLines = nomeLines.slice(0, 4); // evita estourar o espaço se o nome for muito longo
+    doc.text(nomeLines, x + padX, cursorY + h*0.03);
+    cursorY += h*0.03 + nomeLines.length * (w*0.095) + h*0.02;
+
+    // POR: preço novo (destaque) OU texto livre da placa
+    if(item.precoPor){
+      doc.setTextColor(PDF_RED[0],PDF_RED[1],PDF_RED[2]);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(w*0.09);
+      doc.text('POR:', x + padX, cursorY + h*0.03);
+      cursorY += h*0.055;
+      doc.setTextColor(PDF_INK[0],PDF_INK[1],PDF_INK[2]);
+      doc.setFontSize(w*0.30);
+      doc.text(fmtMoney(item.precoPor).replace('R$ ',''), x + padX, cursorY + h*0.11);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(w*0.07);
+      doc.text('UNID.', x + padX, cursorY + h*0.145);
+      cursorY += h*0.17;
+    } else if(item.infoPlaca){
+      doc.setTextColor(PDF_INK[0],PDF_INK[1],PDF_INK[2]);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(w*0.11);
+      var infoLines = doc.splitTextToSize(String(item.infoPlaca), innerW);
+      doc.text(infoLines, x + padX, cursorY + h*0.04);
+      cursorY += infoLines.length * (w*0.12) + h*0.02;
+    }
+
+    // Rodapé: validade, redes sociais, QR e marca — ancorado na base da placa
+    var rodapeY = y + h - h*0.12;
+    doc.setDrawColor(225,225,225);
+    doc.setLineWidth(0.15);
+    doc.line(x + padX, rodapeY - h*0.01, x + w - padX, rodapeY - h*0.01);
+
+    doc.setTextColor(PDF_INK[0],PDF_INK[1],PDF_INK[2]);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(w*0.045);
+    var validadeTxt = item.origem === 'rebaixa' ? '' : ''; // validade fica só quando fizer sentido
+    doc.text('Siga nossas redes sociais', x + padX, rodapeY);
+    doc.setFontSize(w*0.04);
+    doc.text('@oriundisupermercados  ·  @oriundi_', x + padX, rodapeY + h*0.02);
+
+    var qrTam = w * 0.16;
+    desenharQR_(doc, QR_LINK_PADRAO, x + padX, rodapeY + h*0.03, qrTam);
+
+    // marca Oriundi
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(w*0.085);
+    doc.setTextColor(PDF_RED[0],PDF_RED[1],PDF_RED[2]);
+    doc.text('ORIUNDI', x + padX + qrTam + w*0.05, rodapeY + h*0.03 + qrTam*0.45);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(w*0.035);
+    doc.setTextColor(PDF_GRAY[0],PDF_GRAY[1],PDF_GRAY[2]);
+    doc.text('SUPERMERCADOS', x + padX + qrTam + w*0.05, rodapeY + h*0.03 + qrTam*0.45 + h*0.018);
+  }
+
+  function novoDocPlacasPDF_(){
+    var JsPdfCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : null;
+    if(!JsPdfCtor){
+      alert('O gerador de PDF não carregou. Verifique sua conexão e tente novamente.');
+      return null;
+    }
+    return new JsPdfCtor({ unit:'mm', format:'a4', orientation:'portrait' });
+  }
+
+  function montarPaginasPlacasPDF_(doc, itens){
+    var pageW = 210, pageH = 297;
+    var margem = 8, gap = 4;
+    var tagW = (pageW - margem*2 - gap) / 2;
+    var tagH = pageH - margem*2;
+
+    for(var i=0;i<itens.length;i+=2){
+      if(i>0) doc.addPage();
+      desenharPlacaPDF_(doc, itens[i], margem, margem, tagW, tagH);
+      // linha de corte
+      doc.setDrawColor(180,180,180);
+      doc.setLineDashPattern([1.5,1.5], 0);
+      doc.line(margem+tagW+gap/2, margem, margem+tagW+gap/2, margem+tagH);
+      doc.setLineDashPattern([], 0);
+      if(itens[i+1]){
+        desenharPlacaPDF_(doc, itens[i+1], margem+tagW+gap, margem, tagW, tagH);
+      }
+    }
+  }
+
+  function gerarPlacaPDFUnica(id){
+    var item = itemsPlaca.filter(function(i){ return i.id===id; })[0];
+    if(!item) return;
+    var doc = novoDocPlacasPDF_();
+    if(!doc) return;
+    montarPaginasPlacasPDF_(doc, [item]);
+    doc.save('placa-' + (item.codigoInterno || item.barcode || item.id) + '.pdf');
+  }
+
+  function gerarPlacasPDF(){
+    var ids = Object.keys(placaSelecionadas).filter(function(id){ return placaSelecionadas[id]; });
+    var itens = itemsPlaca.filter(function(i){ return ids.indexOf(i.id) !== -1; });
+    if(!itens.length){ alert('Selecione ao menos uma placa.'); return; }
+    var doc = novoDocPlacasPDF_();
+    if(!doc) return;
+    montarPaginasPlacasPDF_(doc, itens);
+    doc.save('placas-oriundi-' + nowIso().slice(0,10) + '.pdf');
   }
 
   function confirmPlacaPronta(id){
@@ -2067,8 +2256,31 @@
         return '<button class="chip '+(placaFilter===f?'active':'')+'" onclick="App.setPlacaFilter(\''+f+'\')">'+label+'</button>';
       }).join('') + '</div>';
 
-    var cards = list.length ? ('<div class="card-list">'+list.map(renderPlacaCard).join('')+'</div>') : renderEmptyPlaca();
+    var idsVisiveis = {};
+    list.forEach(function(i){ idsVisiveis[i.id] = true; });
+    var qtdSelecionadas = Object.keys(placaSelecionadas).filter(function(id){ return placaSelecionadas[id] && idsVisiveis[id]; }).length;
+    var pdfBar = '<div class="pdf-bar">' +
+      '<label class="pdf-selall"><input type="checkbox" onchange="App.toggleSelectAllPlacas(this.checked)"' + (qtdSelecionadas && qtdSelecionadas===list.length ? ' checked' : '') + '> Selecionar todas</label>' +
+      '<button class="btn btn-primary btn-sm" '+(qtdSelecionadas? '' : 'disabled')+' onclick="App.gerarPlacasPDF()">Gerar PDF'+(qtdSelecionadas ? ' ('+qtdSelecionadas+')' : '')+'</button>' +
+    '</div>';
+
+    var cards = list.length ? (pdfBar + '<div class="card-list">'+list.map(renderPlacaCard).join('')+'</div>') : renderEmptyPlaca();
     return addBar + '<div class="section-sub">' + chips + '</div>' + cards;
+  }
+
+  function toggleSelectAllPlacas(checked){
+    var list = itemsPlaca.filter(function(i){
+      if(!inActiveFilial(i)) return false;
+      if(placaFilter==='todos') return true;
+      return i.status === placaFilter;
+    });
+    list.forEach(function(i){ placaSelecionadas[i.id] = checked; });
+    render();
+  }
+
+  function togglePlacaSelecionada(id, checked){
+    placaSelecionadas[id] = checked;
+    render();
   }
 
   function renderEmptyPlaca(){
@@ -2091,16 +2303,18 @@
     else { tagClass='tag-amber'; statusLabel='Aguarda marketing'; }
     var statusTag = '<span class="tag '+tagClass+'">'+statusLabel+'</span>';
     var origemTag = item.origem==='rebaixa' ? ' &middot; gerada por rebaixa' : ' &middot; pedido manual';
-    var actions = '';
+    var actions = '<div class="card-actions">';
+    var temAcao = false;
     if(role==='marketing' && item.status==='pendente'){
-      actions = '<div class="card-actions"><button class="btn btn-green btn-sm" onclick="App.confirmPlacaPronta(\''+item.id+'\')">Confirmar placa feita</button></div>';
+      actions += '<button class="btn btn-green btn-sm" onclick="App.confirmPlacaPronta(\''+item.id+'\')">Confirmar placa feita</button>'; temAcao = true;
     }
     if(role==='loja' && item.status==='pronta'){
-      actions = '<div class="card-actions"><button class="btn btn-green btn-sm" onclick="App.openLojaPlacaModal(\''+item.id+'\')">Registrar placa na seção</button></div>';
+      actions += '<button class="btn btn-green btn-sm" onclick="App.openLojaPlacaModal(\''+item.id+'\')">Registrar placa na seção</button>'; temAcao = true;
     }
     if(role==='comprador' && item.status==='pendente' && item.origem==='manual'){
-      actions = '<div class="card-actions"><button class="btn btn-ghost btn-sm" onclick="App.removePlaca(\''+item.id+'\')">Cancelar</button></div>';
+      actions += '<button class="btn btn-ghost btn-sm" onclick="App.removePlaca(\''+item.id+'\')">Cancelar</button>'; temAcao = true;
     }
+    actions += '<button class="btn btn-outline btn-sm" onclick="App.gerarPlacaPDFUnica(\''+item.id+'\')">Baixar PDF</button></div>';
     var meta = '<div class="card-meta">Solicitada em '+fmtDateTime(item.criadoEm)+(item.criadoPor?' por '+esc(item.criadoPor):'')+origemTag+'</div>';
     if(item.status==='pronta' || item.status==='confirmado'){
       meta += '<div class="card-meta">Placa feita em ' + fmtDateTime(item.prontaEm) + (item.prontaPor?' por '+esc(item.prontaPor):'') + '</div>';
@@ -2111,14 +2325,22 @@
         meta += '<div class="proof-row"><img class="proof-thumb" src="'+item.fotoComprovacao+'" alt="Comprovação"></div>';
       }
     }
+    var checked = placaSelecionadas[item.id] ? ' checked' : '';
     return '<div class="card" style="--card-accent:'+ACCENT_MAP[tagClass]+'">' +
-      '<div class="card-top">' + thumbOrPlaceholder(item.foto,56) +
+      '<div class="card-top">' +
+        '<input type="checkbox" class="pdf-check" onchange="App.togglePlacaSelecionada(\''+item.id+'\', this.checked)"'+checked+'>' +
+        thumbOrPlaceholder(item.foto,56) +
         '<div class="card-info">' +
           '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">' +
             '<div><div class="card-name">'+esc(item.nome)+'</div><div class="card-barcode">'+esc(item.barcode)+(item.codigoInterno?' &middot; Interno '+esc(item.codigoInterno):'')+'</div></div>' +
             statusTag +
           '</div>' +
-          '<div class="card-obs"><strong>'+esc(item.infoPlaca)+'</strong>' + (item.observacao ? '<br>'+esc(item.observacao) : '') + '</div>' +
+          '<div class="card-obs">' +
+            (item.precoDe || item.precoPor
+              ? '<strong>'+(item.precoDe?'De '+fmtMoney(item.precoDe)+' ':'')+(item.precoPor?'por '+fmtMoney(item.precoPor):'')+'</strong>'
+              : '<strong>'+esc(item.infoPlaca)+'</strong>') +
+            (item.observacao ? '<br>'+esc(item.observacao) : '') +
+          '</div>' +
         '</div>' +
       '</div>' + meta + actions +
     '</div>';
@@ -2167,7 +2389,11 @@
     handlePhoto:handlePhoto,
     submitApiUrl:submitApiUrl,
     retryApi:retryApi,
-    changeApiUrl:changeApiUrl
+    changeApiUrl:changeApiUrl,
+    toggleSelectAllPlacas:toggleSelectAllPlacas,
+    togglePlacaSelecionada:togglePlacaSelecionada,
+    gerarPlacaPDFUnica:gerarPlacaPDFUnica,
+    gerarPlacasPDF:gerarPlacasPDF
   };
 
   /* ---------- boot ---------- */
