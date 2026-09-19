@@ -173,6 +173,18 @@
   .card-obs{font-size:12.5px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
   .card-meta{font-size:11.5px;color:var(--ink-faint);margin-top:8px;font-family:var(--font-mono);}
   .card-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .chip-n{
+    display:inline-block;min-width:16px;padding:0 4px;margin-left:4px;border-radius:9px;
+    background:rgba(0,0,0,.10);font-size:11px;font-weight:700;line-height:16px;text-align:center;
+  }
+  .chip.active .chip-n{background:rgba(255,255,255,.28);}
+  .prev-frame{
+    width:100%;height:210px;border:1px solid var(--line);border-radius:10px;
+    overflow:hidden;background:var(--surface-alt);margin-bottom:14px;
+  }
+  .prev-frame iframe{width:100%;height:100%;border:0;display:block;}
+  .prev-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}
+  .prev-pos{font-size:12.5px;color:var(--ink-soft);font-weight:600;}
   .pdf-bar{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
     padding:8px 2px 12px 2px;flex-wrap:wrap;
@@ -1089,6 +1101,9 @@
 
     var visible = visibleTabsFor(role);
     if(visible.indexOf(activeTab) === -1) activeTab = visible[0];
+    // cada papel abre já filtrado no que depende dele
+    if(role === 'marketing') placaFilter = 'pendente';
+    else if(role === 'loja') placaFilter = 'pronta';
 
     try{ localStorage.setItem('giro-user-id', user.id); }catch(e){}
     startPolling();
@@ -1748,27 +1763,34 @@
       setCap(doc,'Ant',6*k);
       doc.text('POR:', bx+bw*0.055, by+bh*0.19);
       var p = Number(item.precoPor).toFixed(2).split('.');
-      var medir = function(e){
-        setCap(doc,'Ant',10*k*e);  var a=doc.getTextWidth('R$');
-        setCap(doc,'Ant',34*k*e);  var b=doc.getTextWidth(p[0]);
-        setCap(doc,'Ant',12*k*e);  var c=doc.getTextWidth(','+p[1]);
-        setCap(doc,'Ant',6.5*k*e); var d=doc.getTextWidth('UNID.');
-        return {rs:a, int:b, cent:c, un:d, total:a+2*k*e+b+2*k*e+Math.max(c,d)};
+      /* O corpo do preço varia com a quantidade de dígitos: com poucos
+         dígitos cresce, evitando sobrar vermelho ocioso; com muitos,
+         encolhe. Os demais elementos acompanham na mesma proporção. */
+      var nd = p[0].replace(/\D/g,'').length;
+      var fatorDig = nd<=1 ? 1.25 : (nd===2 ? 1.10 : (nd===3 ? 0.95 : 0.78));
+      var capBase = 30*k*fatorDig;
+      var medirCap = function(cd){
+        setCap(doc,'Ant',cd*0.294); var a=doc.getTextWidth('R$');
+        setCap(doc,'Ant',cd);       var b=doc.getTextWidth(p[0]);
+        setCap(doc,'Ant',cd*0.353); var c=doc.getTextWidth(','+p[1]);
+        setCap(doc,'Ant',cd*0.191); var d=doc.getTextWidth('UNID.');
+        return {rs:a, int:b, cent:c, un:d, total:a+cd*0.06+b+cd*0.06+Math.max(c,d)};
       };
-      var disp = bw*0.80;
-      var esc = Math.min(1, disp/medir(1).total);
-      var m = medir(esc);
-      var gx = bx + bw*0.90 - m.total;
+      var escW = (bw*0.86)/medirCap(capBase).total;   // não estourar a largura
+      var escH = (bh*0.78)/capBase;                   // nem a altura da caixa
+      var capDig = capBase*Math.min(1, escW, escH);
+      var m = medirCap(capDig);
+      var gx = bx + (bw - m.total)/2;                 // grupo centralizado
       var gBase = by+bh*0.86;
-      setCap(doc,'Ant',10*k*esc);
-      doc.text('R$', gx, gBase-bh*0.16);
-      setCap(doc,'Ant',34*k*esc);
-      doc.text(p[0], gx+m.rs+2*k*esc, gBase);
-      var cX = gx+m.rs+2*k*esc+m.int+2*k*esc;
-      setCap(doc,'Ant',12*k*esc);
-      doc.text(','+p[1], cX, by+bh*0.44);
-      setCap(doc,'Ant',6.5*k*esc);
-      doc.text('UNID.', cX, by+bh*0.80);
+      setCap(doc,'Ant',capDig*0.294);
+      doc.text('R$', gx, gBase-capDig*0.26);
+      setCap(doc,'Ant',capDig);
+      doc.text(p[0], gx+m.rs+capDig*0.06, gBase);
+      var cX = gx+m.rs+capDig*0.06+m.int+capDig*0.06;
+      setCap(doc,'Ant',capDig*0.353);
+      doc.text(','+p[1], cX, gBase-capDig*0.66);
+      setCap(doc,'Ant',capDig*0.191);
+      doc.text('UNID.', cX, gBase-capDig*0.06);
     } else if(item.infoPlaca){
       var f3 = ajustarCapPDF_(doc, String(item.infoPlaca).toUpperCase(), bw*0.88, 'Ant', 11*k, 2, 4*k);
       if(f3.linhas.length===1){
@@ -1786,13 +1808,24 @@
       setCap(doc,'Ant',4*k); doc.text('DE:', dx, y+38*k);
       var d = Number(item.precoDe).toFixed(2).split('.');
       var dBase = y+50*k;
-      setCap(doc,'Ant',5.5*k); var dRs = doc.getTextWidth('R$');
+      // o bloco "DE" também encolhe se for esbarrar na caixa vermelha
+      var medirDe = function(cd){
+        setCap(doc,'Ant',cd*0.478); var a=doc.getTextWidth('R$');
+        setCap(doc,'Ant',cd);       var b=doc.getTextWidth(d[0]);
+        setCap(doc,'Ant',cd*0.478); var c=doc.getTextWidth(','+d[1]);
+        setF(doc,'PopS',emParaCap(cd*0.26)); var e=doc.getTextWidth('unid.');
+        return {rs:a, int:b, total:a+cd*0.13+b+Math.max(c,e)};
+      };
+      var dispDe = (bx - dx) - 3*k;
+      var capDe = 11.5*k*Math.min(1, dispDe/medirDe(11.5*k).total);
+      var md = medirDe(capDe);
+      setCap(doc,'Ant',capDe*0.478);
       doc.text('R$', dx, dBase);
-      setCap(doc,'Ant',11.5*k);  var dIw = doc.getTextWidth(d[0]);
-      doc.text(d[0], dx+dRs+1.5*k, dBase);
-      var dCx = dx+dRs+1.5*k+dIw;
-      setCap(doc,'Ant',5.5*k); doc.text(','+d[1], dCx, dBase-6*k);
-      setF(doc,'PopS',emParaCap(3*k));   doc.text('unid.', dCx, dBase);
+      setCap(doc,'Ant',capDe);
+      doc.text(d[0], dx+md.rs+capDe*0.13, dBase);
+      var dCx = dx+md.rs+capDe*0.13+md.int;
+      setCap(doc,'Ant',capDe*0.478); doc.text(','+d[1], dCx, dBase-capDe*0.52);
+      setF(doc,'PopS',emParaCap(capDe*0.26)); doc.text('unid.', dCx, dBase);
     }
 
     // ---- rodapé ----
@@ -1844,13 +1877,15 @@
     });
   }
 
-  function novoDocPlacasPDF_(){
+  function novoDocPlacasPDF_(formato){
     var JsPdfCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : null;
     if(!JsPdfCtor){
       alert('O gerador de PDF não carregou. Verifique sua conexão e tente novamente.');
       return null;
     }
-    var doc = new JsPdfCtor({ unit:'mm', format:'a4', orientation:'portrait' });
+    var doc = formato === 'placa'
+      ? new JsPdfCtor({ unit:'mm', format:[205,102], orientation:'landscape' })
+      : new JsPdfCtor({ unit:'mm', format:'a4', orientation:'portrait' });
     registrarFontesPDF_(doc);
     return doc;
   }
@@ -1871,23 +1906,132 @@
     }
   }
 
-  function gerarPlacaPDFUnica(id){
-    var item = itemsPlaca.filter(function(i){ return i.id===id; })[0];
-    if(!item) return;
-    var doc = novoDocPlacasPDF_();
-    if(!doc) return;
-    montarPaginasPlacasPDF_(doc, [item]);
-    doc.save('placa-' + (item.codigoInterno || item.barcode || item.id) + '.pdf');
+  /* ---------- pré-visualização antes de baixar ----------
+     O PDF é montado em memória e exibido num iframe, com os textos
+     editáveis ao lado. Nada é baixado até a pessoa confirmar. */
+  var previewItens = [];      // cópias editáveis
+  var previewIdx = 0;
+
+  function itemParaPreview_(i){
+    return { id:i.id, nome:(i.nomePlaca || i.nome || ''), nomeOriginal:i.nome,
+             barcode:i.barcode, codigoInterno:i.codigoInterno,
+             precoDe:i.precoDe, precoPor:i.precoPor, infoPlaca:i.infoPlaca,
+             validade:i.validade||'' };
   }
 
-  function gerarPlacasPDF(){
+  function abrirPreviaPlaca(id){
+    var item = itemsPlaca.filter(function(i){ return i.id===id; })[0];
+    if(!item) return;
+    previewItens = [itemParaPreview_(item)];
+    previewIdx = 0;
+    renderPreviaModal();
+  }
+
+  function abrirPreviaSelecionadas(){
     var ids = Object.keys(placaSelecionadas).filter(function(id){ return placaSelecionadas[id]; });
     var itens = itemsPlaca.filter(function(i){ return ids.indexOf(i.id) !== -1; });
     if(!itens.length){ alert('Selecione ao menos uma placa.'); return; }
+    previewItens = itens.map(itemParaPreview_);
+    previewIdx = 0;
+    renderPreviaModal();
+  }
+
+  function renderPreviaModal(){
+    var n = previewItens.length;
+    var it = previewItens[previewIdx];
+    if(!it) return;
+    var nav = n > 1
+      ? '<div class="prev-nav">' +
+          '<button class="btn btn-ghost btn-sm" '+(previewIdx===0?'disabled':'')+' onclick="App.previaAnterior()">‹ Anterior</button>' +
+          '<span class="prev-pos">Placa '+(previewIdx+1)+' de '+n+'</span>' +
+          '<button class="btn btn-ghost btn-sm" '+(previewIdx===n-1?'disabled':'')+' onclick="App.previaProxima()">Próxima ›</button>' +
+        '</div>'
+      : '';
+    showModal(
+      '<div class="modal-head"><h3>Conferir antes de imprimir</h3><button class="icon-btn" onclick="App.closeModal()">&times;</button></div>' +
+      nav +
+      '<div class="prev-frame"><iframe id="prev-iframe" title="Pré-visualização da placa"></iframe></div>' +
+      '<div class="field"><label>Descrição que sai na placa</label>' +
+        '<textarea id="prev-nome" rows="2" oninput="App.previaAtualiza()">'+esc(it.nome)+'</textarea>' +
+        '<p class="hint" id="prev-dica"></p>' +
+      '</div>' +
+      '<div class="field-row" style="display:flex;gap:10px;">' +
+        '<div class="field" style="flex:1;"><label>Preço De (opcional)</label><input type="number" id="prev-de" min="0" step="0.01" value="'+(it.precoDe||'')+'" oninput="App.previaAtualiza()"></div>' +
+        '<div class="field" style="flex:1;"><label>Preço Por</label><input type="number" id="prev-por" min="0" step="0.01" value="'+(it.precoPor||'')+'" oninput="App.previaAtualiza()"></div>' +
+      '</div>' +
+      '<button class="btn btn-primary btn-block" onclick="App.baixarPreviaPDF()">Baixar PDF'+(n>1?' ('+n+' placas)':'')+'</button>' +
+      (it.nome !== it.nomeOriginal
+        ? '<p class="hint" style="text-align:center;margin-top:8px;">A descrição editada fica salva para as próximas impressões desta placa.</p>' : '')
+    );
+    atualizarPreviaIframe();
+  }
+
+  function previaAnterior(){ if(previewIdx>0){ capturarCamposPrevia(); previewIdx--; renderPreviaModal(); } }
+  function previaProxima(){ if(previewIdx<previewItens.length-1){ capturarCamposPrevia(); previewIdx++; renderPreviaModal(); } }
+
+  function capturarCamposPrevia(){
+    var it = previewItens[previewIdx];
+    if(!it) return;
+    var n = document.getElementById('prev-nome');
+    var de = document.getElementById('prev-de');
+    var po = document.getElementById('prev-por');
+    if(n) it.nome = n.value;
+    if(de) it.precoDe = de.value ? Number(de.value) : '';
+    if(po) it.precoPor = po.value ? Number(po.value) : '';
+  }
+
+  var previaTimer = null;
+  function previaAtualiza(){
+    capturarCamposPrevia();
+    if(previaTimer) clearTimeout(previaTimer);
+    previaTimer = setTimeout(atualizarPreviaIframe, 350);
+  }
+
+  function atualizarPreviaIframe(){
+    var frame = document.getElementById('prev-iframe');
+    if(!frame) return;
+    var it = previewItens[previewIdx];
+    var doc = novoDocPlacasPDF_('placa');
+    if(!doc) return;
+    var alvo = { nome:it.nome, barcode:it.barcode, codigoInterno:it.codigoInterno,
+                 precoDe:it.precoDe, precoPor:it.precoPor, infoPlaca:it.infoPlaca, validade:it.validade };
+    desenharPlacaPDF_(doc, alvo, 0, 0, 205, 102);
+    try{ frame.src = doc.output('datauristring') + '#toolbar=0&navpanes=0&view=FitH'; }catch(e){}
+    var dica = document.getElementById('prev-dica');
+    if(dica){
+      var t = String(it.nome||'');
+      dica.textContent = t.length + ' caracteres' + (t.length > 46 ? ' — textos longos reduzem de tamanho na placa.' : '');
+    }
+  }
+
+  function baixarPreviaPDF(){
+    capturarCamposPrevia();
+    var faltando = previewItens.filter(function(i){ return !i.precoPor; });
+    if(faltando.length){ alert('Informe o preço Por de todas as placas antes de baixar.'); return; }
+
+    // guarda as descrições editadas para as próximas impressões
+    var mudou = false;
+    previewItens.forEach(function(pi){
+      var orig = itemsPlaca.filter(function(i){ return i.id===pi.id; })[0];
+      if(!orig) return;
+      if(pi.nome && pi.nome !== orig.nome && pi.nome !== orig.nomePlaca){ orig.nomePlaca = pi.nome; mudou = true; }
+      if(pi.precoDe !== orig.precoDe){ orig.precoDe = pi.precoDe; mudou = true; }
+      if(pi.precoPor !== orig.precoPor){ orig.precoPor = pi.precoPor; mudou = true; }
+    });
+    if(mudou) persistPlaca();
+
     var doc = novoDocPlacasPDF_();
     if(!doc) return;
-    montarPaginasPlacasPDF_(doc, itens);
-    doc.save('placas-oriundi-' + nowIso().slice(0,10) + '.pdf');
+    montarPaginasPlacasPDF_(doc, previewItens.map(function(i){
+      return { nome:i.nome, barcode:i.barcode, codigoInterno:i.codigoInterno,
+               precoDe:i.precoDe, precoPor:i.precoPor, infoPlaca:i.infoPlaca, validade:i.validade };
+    }));
+    var nome = previewItens.length === 1
+      ? 'placa-' + (previewItens[0].codigoInterno || previewItens[0].barcode || 'oriundi') + '.pdf'
+      : 'placas-oriundi-' + nowIso().slice(0,10) + '.pdf';
+    doc.save(nome);
+    closeModal();
+    if(mudou) render();
   }
 
   function confirmPlacaPronta(id){
@@ -2133,18 +2277,15 @@
     renderMain();
   }
 
+  /* A barra de administração existe só para o comprador. Loja e marketing
+     não precisam saber tamanho da base nem quantidade de usuários. */
   function renderDbBar(){
     var el = document.getElementById('dbBar');
+    if(role !== 'comprador'){ el.innerHTML = ''; return; }
     var count = Object.keys(productDB).length;
-    if(role !== 'comprador'){
-      el.innerHTML = count
-        ? '<span class="db-link" style="cursor:default;">Base de produtos: <strong>'+count+'</strong> item(ns) cadastrados</span>'
-        : '';
-      return;
-    }
     el.innerHTML =
-      '<button class="db-link" onclick="App.openImportDBModal()">📋 Base de produtos: <strong>'+count+'</strong> item(ns) &middot; importar/atualizar planilha</button>' +
-      '<button class="db-link" onclick="App.openUsersModal()">👤 Usuários (' + users.length + ') &middot; gerenciar acessos</button>';
+      '<button class="db-link" onclick="App.openImportDBModal()">Base de produtos <strong>'+count.toLocaleString('pt-BR')+'</strong></button>' +
+      '<button class="db-link" onclick="App.openUsersModal()">Usuários <strong>'+users.length+'</strong></button>';
   }
 
   function renderTabs(){
@@ -2361,18 +2502,22 @@
     var addBar = role==='comprador'
       ? '<div class="add-bar"><button class="btn btn-green btn-block" onclick="App.openNewPlacaModal()">+ Novo pedido de placa</button></div>'
       : '';
+    var daFilial = itemsPlaca.filter(inActiveFilial);
+    var cont = function(st){ return st==='todos' ? daFilial.length : daFilial.filter(function(i){ return i.status===st; }).length; };
     var chips = '<div class="filter-chips">' +
       ['todos','pendente','pronta','confirmado'].map(function(f){
-        var label = f==='todos'?'Todos':(f==='pendente'?'Pendente':(f==='pronta'?'Pronta p/ loja':'Confirmada'));
-        return '<button class="chip '+(placaFilter===f?'active':'')+'" onclick="App.setPlacaFilter(\''+f+'\')">'+label+'</button>';
+        var label = f==='todos'?'Todos':(f==='pendente'?'Aguarda marketing':(f==='pronta'?'Pronta p/ loja':'Confirmada'));
+        return '<button class="chip '+(placaFilter===f?'active':'')+'" onclick="App.setPlacaFilter(\''+f+'\')">'+label+' <span class="chip-n">'+cont(f)+'</span></button>';
       }).join('') + '</div>';
 
     var idsVisiveis = {};
     list.forEach(function(i){ idsVisiveis[i.id] = true; });
     var qtdSelecionadas = Object.keys(placaSelecionadas).filter(function(id){ return placaSelecionadas[id] && idsVisiveis[id]; }).length;
     var pdfBar = '<div class="pdf-bar">' +
-      '<label class="pdf-selall"><input type="checkbox" onchange="App.toggleSelectAllPlacas(this.checked)"' + (qtdSelecionadas && qtdSelecionadas===list.length ? ' checked' : '') + '> Selecionar todas</label>' +
-      '<button class="btn btn-primary btn-sm" '+(qtdSelecionadas? '' : 'disabled')+' onclick="App.gerarPlacasPDF()">Gerar PDF'+(qtdSelecionadas ? ' ('+qtdSelecionadas+')' : '')+'</button>' +
+      (list.length>1
+        ? '<label class="pdf-selall"><input type="checkbox" onchange="App.toggleSelectAllPlacas(this.checked)"' + (qtdSelecionadas && qtdSelecionadas===list.length ? ' checked' : '') + '> Selecionar todas ('+list.length+')</label>'
+        : '<span></span>') +
+      '<button class="btn btn-primary btn-sm" '+(qtdSelecionadas? '' : 'disabled')+' onclick="App.abrirPreviaSelecionadas()">Conferir e gerar PDF'+(qtdSelecionadas ? ' ('+qtdSelecionadas+')' : '')+'</button>' +
     '</div>';
 
     var cards = list.length ? (pdfBar + '<div class="card-list">'+list.map(renderPlacaCard).join('')+'</div>') : renderEmptyPlaca();
@@ -2425,7 +2570,7 @@
     if(role==='comprador' && item.status==='pendente' && item.origem==='manual'){
       actions += '<button class="btn btn-ghost btn-sm" onclick="App.removePlaca(\''+item.id+'\')">Cancelar</button>'; temAcao = true;
     }
-    actions += '<button class="btn btn-outline btn-sm" onclick="App.gerarPlacaPDFUnica(\''+item.id+'\')">Baixar PDF</button></div>';
+    actions += '<button class="btn btn-outline btn-sm" onclick="App.abrirPreviaPlaca(\''+item.id+'\')">Conferir e baixar PDF</button></div>';
     var meta = '<div class="card-meta">Solicitada em '+fmtDateTime(item.criadoEm)+(item.criadoPor?' por '+esc(item.criadoPor):'')+origemTag+'</div>';
     if(item.status==='pronta' || item.status==='confirmado'){
       meta += '<div class="card-meta">Placa feita em ' + fmtDateTime(item.prontaEm) + (item.prontaPor?' por '+esc(item.prontaPor):'') + '</div>';
@@ -2435,6 +2580,9 @@
       if(item.fotoComprovacao){
         meta += '<div class="proof-row"><img class="proof-thumb" src="'+item.fotoComprovacao+'" alt="Comprovação"></div>';
       }
+    }
+    if(item.nomePlaca && item.nomePlaca !== item.nome){
+      meta += '<div class="card-meta">Descrição da placa: '+esc(item.nomePlaca)+'</div>';
     }
     var checked = placaSelecionadas[item.id] ? ' checked' : '';
     return '<div class="card" style="--card-accent:'+ACCENT_MAP[tagClass]+'">' +
@@ -2503,8 +2651,12 @@
     changeApiUrl:changeApiUrl,
     toggleSelectAllPlacas:toggleSelectAllPlacas,
     togglePlacaSelecionada:togglePlacaSelecionada,
-    gerarPlacaPDFUnica:gerarPlacaPDFUnica,
-    gerarPlacasPDF:gerarPlacasPDF
+    abrirPreviaPlaca:abrirPreviaPlaca,
+    abrirPreviaSelecionadas:abrirPreviaSelecionadas,
+    previaAnterior:previaAnterior,
+    previaProxima:previaProxima,
+    previaAtualiza:previaAtualiza,
+    baixarPreviaPDF:baixarPreviaPDF
   };
 
   /* ---------- boot ---------- */
