@@ -100,7 +100,7 @@
   main{padding:16px 16px 40px 16px;}
   body.com-sel main{padding-bottom:110px;}
   .acoes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
-  @media(max-width:640px){ .acoes .btn{flex:1 1 100%;} }
+  @media(max-width:640px){ .acoes .btn{flex:1 1 100%;} .acoes.acoes-dupla .btn{flex:1 1 0;padding:0 10px;} }
   .filtros{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 12px -16px;padding:2px 16px;}
   .filtros::-webkit-scrollbar{display:none;}
   .chip{
@@ -134,6 +134,42 @@
   .card-codes{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:4px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-faint);}
   .card-codes span{white-space:nowrap;}
   .cod-lbl{font-family:var(--font-body);font-size:12.5px;font-weight:500;}
+  .card-codes b{font-weight:500;}
+  .card-codes.destaque{font-size:16px;color:var(--ink);margin:0 0 4px 0;}
+  .card-codes.destaque b{font-weight:600;}
+  .card-codes.destaque .cod-lbl{font-size:14px;color:var(--ink-soft);}
+  .card-codes.destaque > span:last-child{font-size:13px;color:var(--ink-faint);}
+  .idade{margin-left:auto;font-size:12.5px;color:var(--ink-faint);white-space:nowrap;}
+  .nome-sistema{font-size:12.5px;color:var(--ink-faint);margin-top:2px;line-height:1.35;}
+  .ultimo{font-size:13px;color:var(--ink-faint);line-height:1.45;display:flex;flex-wrap:wrap;gap:0 10px;align-items:baseline;}
+  .u-quando{color:var(--ink-soft);font-weight:600;margin-right:6px;white-space:nowrap;}
+  .lnk{background:none;border:0;padding:4px 0;min-height:32px;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px;font-size:13px;font-weight:500;cursor:pointer;}
+  .lnk:hover{color:var(--ink);}
+  .historico{list-style:none;margin:0;padding:8px 10px;background:var(--surface-alt);border-radius:8px;font-size:13px;color:var(--ink-soft);}
+  .historico li{display:flex;gap:10px;padding:3px 0;line-height:1.4;}
+  .h-quando{flex:0 0 84px;color:var(--ink-faint);white-space:nowrap;}
+  .chip-n.alerta, .chip[aria-pressed="true"] .chip-n.alerta{background:var(--red);color:#fff;}
+  .tabela-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;}
+  table.lista{width:100%;border-collapse:collapse;font-size:14px;}
+  table.lista th{text-align:left;font-size:12.5px;font-weight:600;color:var(--ink-faint);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  table.lista td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.lista tbody tr:last-child td{border-bottom:0;}
+  table.lista tr.st-aguardando td:first-child{box-shadow:inset 4px 0 0 var(--amber);}
+  table.lista tr.st-urgente td:first-child{box-shadow:inset 4px 0 0 var(--red);}
+  table.lista tr.st-concluido td:first-child{box-shadow:inset 4px 0 0 var(--green);}
+  table.lista tr.selecionado td{background:#F6F6F8;}
+  table.lista td.nm{min-width:200px;}
+  table.lista td.nm > b{display:block;font-weight:600;font-size:14.5px;line-height:1.3;}
+  table.lista td.nm .card-codes{margin-top:3px;}
+  table.lista .sub{display:block;font-size:12.5px;color:var(--ink-faint);margin-top:4px;}
+  table.lista .obs{display:block;font-size:13px;color:var(--ink-soft);margin-top:4px;}
+  table.lista td.pr{white-space:nowrap;}
+  table.lista td.pr s{display:block;font-size:12.5px;color:var(--ink-faint);}
+  table.lista td.pr b{font-family:var(--font-display);font-weight:600;font-size:16px;}
+  table.lista td.mov{min-width:160px;max-width:300px;}
+  table.lista .acoes-col{text-align:right;white-space:nowrap;}
+  table.lista .acoes-col .btn{margin-left:6px;}
+  table.lista th.ck, table.lista td.ck{width:46px;padding-right:0;}
   .card-obs{font-size:14px;color:var(--ink-soft);line-height:1.45;margin:6px 0 0 0;overflow-wrap:anywhere;}
   .card-meta{font-size:13px;color:var(--ink-faint);line-height:1.45;}
   .card-meta b{color:var(--ink-soft);font-weight:600;}
@@ -142,7 +178,8 @@
   .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--line);background:var(--surface-alt);}
   .thumb-placeholder{width:56px;height:56px;border-radius:10px;flex-shrink:0;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);border:1px solid var(--line);}
   .abast{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:2px;}
-  .abast-tit{grid-column:1 / -1;font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .abast-tit{grid-column:1 / -1;font-size:13px;font-weight:600;color:var(--ink-soft);display:flex;justify-content:space-between;gap:8px;}
+  .abast-tit .idade{font-weight:400;}
   .abast .btn{min-height:52px;width:100%;padding:6px 10px;text-align:center;}
   .abast .btn-alerta, .abast .btn-largo{grid-column:1 / -1;}
   .btn-alerta{background:var(--red-soft);color:var(--red);}
@@ -410,7 +447,7 @@
   var currentUser = null;
   var authError = '';
   var activeTab = 'expo';
-  var filtros = { expo:'pendente', val:'aguardando', placas:'todos' };
+  var filtros = {};            // filtro ativo de cada aba (vazio = primeiro filtro do perfil)
   var itemsExpo = [];
   var itemsVal = [];
   var itemsPlaca = [];
@@ -1493,10 +1530,8 @@
     }
 
     // cada papel abre no que depende dele
-    filtros.expo = 'pendente';
-    filtros.val = 'aguardando';
-    filtros.placas = role === 'marketing' ? 'pendente' : (role === 'loja' ? 'pronta' : 'todos');
-    filtros.estoque = 'aguardando';
+    filtros = {};   // cada aba abre no primeiro filtro do perfil (o que depende dele)
+    historicoAberto = {};
     novidadesConhecidas = null;
     var visible = visibleTabsFor(role);
     var comAcao = visible.filter(function(t){ return contagensAba(t).acao > 0; });
@@ -1780,7 +1815,7 @@
     box.innerHTML = '<div class="ac-list">' + res.list.map(function(p, i){
       return '<div class="ac-item" role="option" id="'+ctx+'-op'+i+'" aria-selected="'+(i===0)+'" onmousedown="event.preventDefault()" onclick="App.escolherSugestao(\''+ctx+'\','+i+')">' +
         '<div class="ac-nome">' + esc(p.descricao || '(sem descrição)') + '</div>' +
-        '<div class="ac-meta"><span>' + esc(p.barcode) + '</span>' + (p.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> ' + esc(p.codigoInterno) + '</span>' : '') + '</div>' +
+        '<div class="ac-meta">' + (p.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> ' + esc(p.codigoInterno) + '</span>' : '') + '<span>' + esc(p.barcode) + '</span></div>' +
       '</div>';
     }).join('') +
     (res.total > res.list.length ? '<div class="ac-more">Mais ' + (res.total - res.list.length).toLocaleString('pt-BR') + ' resultados. Continue digitando para refinar.</div>' : '') +
@@ -1926,7 +1961,7 @@
     if(modo) modo.hidden = true;
     sel.innerHTML = '<div class="prod-sel">' +
       '<div class="info"><div class="n">' + esc(p.nome) + '</div>' +
-        '<div class="card-codes"><span>' + esc(p.barcode) + '</span>' + (p.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> ' + esc(p.codigoInterno) + '</span>' : '') + '</div>' +
+        '<div class="card-codes">' + (p.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> ' + esc(p.codigoInterno) + '</span>' : '') + '<span>' + esc(p.barcode) + '</span></div>' +
         (p.origem === 'cosmos' ? '<p class="hint">Veio da base nacional (Cosmos). Confira o nome.</p>' : '') +
       '</div>' +
       '<div class="prod-acts">' +
@@ -1993,8 +2028,12 @@
     return null;
   }
 
-  function cardCodigos(item){
-    return '<div class="card-codes"><span>' + esc(item.barcode) + '</span>' + (item.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> ' + esc(item.codigoInterno) + '</span>' : '') + '</div>';
+  /* Cód. Int. primeiro: é por ele que a equipe consulta o sistema.
+     destaque: maior, para o estoque. */
+  function cardCodigos(item, destaque){
+    return '<div class="card-codes' + (destaque ? ' destaque' : '') + '">' +
+      (item.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> <b>' + esc(item.codigoInterno) + '</b></span>' : '') +
+      '<span>' + esc(item.barcode) + '</span></div>';
   }
   function contextoItem(item, extra){
     return '<div class="context-card"><div class="ctx-top">' +
@@ -3032,7 +3071,7 @@
       cabecalhoModal('Conferir antes de imprimir') +
       nav +
       '<div class="prev-frame"><iframe id="prev-iframe" title="Pré-visualização da placa"></iframe></div>' +
-      '<div class="prev-sub"><span class="tag ' + (it.fidelidade ? 'tag-fid' : 'tag-neutro') + '">' + (it.fidelidade ? 'Placa Meu Oriundi' : 'Placa de oferta') + '</span>' +
+      '<div class="prev-sub">' + (role === 'marketing' ? '<span class="tag ' + (it.fidelidade ? 'tag-fid' : 'tag-neutro') + '">' + (it.fidelidade ? 'Placa Meu Oriundi' : 'Placa de oferta') + '</span>' : '<span></span>') +
         '<button type="button" class="btn-link" onclick="App.previaTelaCheia()">Abrir em tela cheia</button></div>' +
       '<div class="field"><label for="prev-nome">Descrição que sai na placa</label>' +
         '<textarea id="prev-nome" rows="2" oninput="App.previaAtualiza()">' + esc(it.nome) + '</textarea>' +
@@ -3177,29 +3216,70 @@
     placas: { pendente:['Aguardando marketing','aguardando'], pronta:['Aguardando abastecimento','aguardando'],
               estoque:['Aguardando estoque','aguardando'], confirmado:['Na seção','concluido'], sem_estoque:['Sem estoque','urgente'] }
   };
-  var FILTROS = {
-    expo:    [['pendente','Aguardando abastecimento'],['estoque','Aguardando estoque'],['resolvido','Na seção'],['sem_estoque','Sem estoque'],['todos','Todos']],
-    val:     [['aguardando','Aguardando comprador'],['rebaixado','Rebaixado'],['todos','Todos']],
-    placas:  [['pendente','Aguardando marketing'],['pronta','Aguardando abastecimento'],['estoque','Aguardando estoque'],['confirmado','Na seção'],['sem_estoque','Sem estoque'],['todos','Todos']],
-    estoque: [['aguardando','Para conferir'],['conferidos','Conferidos'],['todos','Todos']]
-  };
   var TAB_LABEL = { expo:'Exposição', val:'Validade', placas:'Placas', estoque:'Conferência' };
   var RESULTADO_LABEL = { loja:'Estava na loja', deposito:'Veio do depósito' };
 
-  function contaStatus(arr, st){ return arr.filter(function(i){ return i.status === st; }).length; }
+  /* Filtros de cada perfil: [chave, rótulo, situações incluídas (null = todas)].
+     O primeiro é o que depende da pessoa e abre por padrão. */
+  var FILTROS_PERFIL = {
+    expo: {
+      loja:      [['fazer','Para expor',['pendente']], ['feitos','Feitos',['resolvido','estoque','sem_estoque']], ['todos','Todos',null]],
+      comprador: [['andamento','Em andamento',['pendente','estoque']], ['sem_estoque','Sem estoque',['sem_estoque']], ['concluidos','Concluídos',['resolvido']], ['todos','Todos',null]]
+    },
+    val: {
+      comprador: [['aguardando','Para rebaixar',['aguardando']], ['rebaixado','Rebaixados',['rebaixado']], ['todos','Todos',null]],
+      loja:      [['aguardando','Aguardando comprador',['aguardando']], ['rebaixado','Rebaixados',['rebaixado']], ['todos','Todos',null]]
+    },
+    placas: {
+      comprador: [['andamento','Em andamento',['pendente','pronta','estoque']], ['sem_estoque','Sem estoque',['sem_estoque']], ['concluidas','Concluídas',['confirmado']], ['todos','Todas',null]],
+      marketing: [['fazer','Para fazer',['pendente']], ['feitas','Feitas',['pronta','estoque','confirmado','sem_estoque']], ['todos','Todas',null]],
+      loja:      [['fazer','Para colocar',['pronta']], ['feitas','Feitas',['estoque','confirmado','sem_estoque']], ['todos','Todas',null]]
+    },
+    estoque: {
+      estoque:   [['aguardando','Para conferir',['estoque']], ['conferidos','Conferidos',null], ['todos','Todos',null]]
+    }
+  };
+  function filtrosDe(tab){
+    var porPapel = FILTROS_PERFIL[tab] || {};
+    return porPapel[role] || porPapel.comprador || porPapel.estoque || [];
+  }
+  function filtroAtivo(tab){
+    var defs = filtrosDe(tab);
+    var atual = filtros[tab];
+    for(var i=0;i<defs.length;i++){ if(defs[i][0] === atual) return defs[i]; }
+    return defs[0];
+  }
+  function filtrar(base, tab){
+    var st = filtroAtivo(tab)[2];
+    if(!st) return base.slice();
+    return base.filter(function(i){ return st.indexOf(i.status) !== -1; });
+  }
+  /* A situação no card só aparece quando o filtro mistura situações;
+     num filtro de uma situação só, ela repetiria o que o filtro já diz. */
+  function mostrarSituacao(tab){
+    var st = filtroAtivo(tab)[2];
+    return !st || st.length > 1;
+  }
 
-  /* acao: itens que dependem de quem está logado; aberto: tudo em andamento */
+  function contaStatus(arr, st){ return arr.filter(function(i){ return i.status === st; }).length; }
+  function semEstoqueRecentes(arr, fil){
+    var limite = Date.now() - 7*86400000;
+    return daFilial(arr, fil || activeFilial).filter(function(i){ return i.status === 'sem_estoque' && ts(i.verificadoEm) >= limite; }).length;
+  }
+
+  /* acao: itens que dependem de quem está logado; aberto: tudo em andamento;
+     urgente: pede atenção (vencimento próximo ou sem estoque recente). */
   function contagensAba(t, fil){
     fil = fil || activeFilial;
     if(t === 'expo'){
       var ex = daFilial(itemsExpo, fil);
       var pend = contaStatus(ex, 'pendente'), est = contaStatus(ex, 'estoque');
-      return { acao: role === 'loja' ? pend : 0, aberto: pend + est, urgente: 0 };
+      return { acao: role === 'loja' ? pend : 0, aberto: pend + est, urgente: role === 'comprador' ? semEstoqueRecentes(itemsExpo, fil) : 0, motivo:'sem estoque confirmado' };
     }
     if(t === 'val'){
       var ag = daFilial(itemsVal, fil).filter(function(i){ return i.status === 'aguardando'; });
       var urg = ag.filter(function(i){ return daysUntil(i.validade) <= 3; }).length;
-      return { acao: role === 'comprador' ? ag.length : 0, aberto: ag.length, urgente: urg };
+      return { acao: role === 'comprador' ? ag.length : 0, aberto: ag.length, urgente: (role === 'comprador' || role === 'loja') ? urg : 0, motivo:'vencendo em até 3 dias' };
     }
     if(t === 'estoque'){
       var n = contaStatus(daFilial(itemsExpo, fil), 'estoque') + contaStatus(daFilial(itemsPlaca, fil), 'estoque');
@@ -3207,13 +3287,91 @@
     }
     var pl = daFilial(itemsPlaca, fil);
     var p1 = contaStatus(pl, 'pendente'), p2 = contaStatus(pl, 'pronta'), p3 = contaStatus(pl, 'estoque');
-    return { acao: role === 'marketing' ? p1 : (role === 'loja' ? p2 : 0), aberto: p1 + p2 + p3, urgente: 0 };
+    return { acao: role === 'marketing' ? p1 : (role === 'loja' ? p2 : 0), aberto: p1 + p2 + p3,
+             urgente: role === 'comprador' ? semEstoqueRecentes(itemsPlaca, fil) : 0, motivo:'sem estoque confirmado' };
   }
 
-  /* ---------- avisos de item novo ----------
-     A cada atualização, compara o que depende da pessoa com o que já
-     existia. Item novo: aviso na tela, vibração no celular, contagem no
-     título da aba e, se ativado, alerta do navegador. */
+  /* ---------- datas curtas e histórico ---------- */
+  function mesmoDia(a, b){ return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+  function fmtCurto(iso){
+    if(!iso) return '';
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    var hoje = new Date(), ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
+    var hora = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    if(mesmoDia(d, hoje)) return 'hoje ' + hora;
+    if(mesmoDia(d, ontem)) return 'ontem ' + hora;
+    if(d.getFullYear() === hoje.getFullYear()) return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + ' ' + hora;
+    return d.toLocaleDateString('pt-BR');
+  }
+  function dataCurta(v){
+    if(!v) return '—';
+    var d = dataLocal(v);
+    if(isNaN(d.getTime())) return '—';
+    return d.getFullYear() === new Date().getFullYear() ? pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) : d.toLocaleDateString('pt-BR');
+  }
+  function idade(iso){
+    var t = ts(iso);
+    if(!t) return '';
+    var min = Math.floor((Date.now() - t) / 60000);
+    if(min < 2) return 'agora';
+    if(min < 60) return 'há ' + min + ' min';
+    var h = Math.floor(min / 60);
+    if(h < 24) return 'há ' + h + ' h';
+    var d = Math.floor(h / 24);
+    return d === 1 ? 'há 1 dia' : 'há ' + d + ' dias';
+  }
+  function quem(n){ return esc(n || '—'); }
+
+  /* Tudo o que aconteceu com o item, em ordem. O texto já vem escapado. */
+  function eventos(tabela, item){
+    var ev = [];
+    function add(iso, txt){ if(iso && ts(iso)) ev.push({ t:ts(iso), iso:iso, txt:txt }); }
+    var procurou = item.obsAbastecimento ? '. Procurou em: ' + esc(item.obsAbastecimento) : '';
+    var conferido = item.verificacao === 'sem_estoque' ? '<b>sem estoque físico</b>' : 'produto encontrado';
+    var obsEst = item.obsEstoque ? '. ' + esc(item.obsEstoque) : '';
+    if(tabela === 'itensPlaca'){
+      add(item.criadoEm, 'Pedida por ' + quem(item.criadoPor) + (item.origem === 'planilha' ? ' (planilha)' : (item.origem === 'rebaixa' ? ' (rebaixa)' : '')));
+      add(item.prontaEm, 'Feita por ' + quem(item.prontaPor));
+      add(item.enviadoEstoqueEm, 'Não encontrada por ' + quem(item.enviadoEstoquePor) + procurou);
+      add(item.verificadoEm, 'Estoque (' + quem(item.verificadoPor) + '): ' + conferido + obsEst);
+      add(item.confirmadoEm, 'Colocada na seção por ' + quem(item.confirmadoPor) + (RESULTADO_LABEL[item.resultado] ? ' (' + RESULTADO_LABEL[item.resultado].toLowerCase() + ')' : ''));
+    } else if(tabela === 'itensExpo'){
+      add(item.criadoEm, 'Avisado por ' + quem(item.criadoPor));
+      add(item.enviadoEstoqueEm, 'Não encontrado por ' + quem(item.enviadoEstoquePor) + procurou);
+      add(item.verificadoEm, 'Estoque (' + quem(item.verificadoPor) + '): ' + conferido + obsEst);
+      add(item.resolvidoEm, 'Confirmado por ' + quem(item.resolvidoPor) + (RESULTADO_LABEL[item.resultado] ? ' (' + RESULTADO_LABEL[item.resultado].toLowerCase() + ')' : ''));
+    } else {
+      add(item.reportadoEm, 'Reportado por ' + quem(item.reportadoPor));
+      add(item.rebaixadoEm, 'Rebaixado por ' + quem(item.rebaixadoPor));
+    }
+    ev.sort(function(a, b){ return a.t - b.t; });
+    return ev;
+  }
+  var historicoAberto = {};
+  function toggleHistorico(chave){
+    historicoAberto[chave] = !historicoAberto[chave];
+    renderMain();
+  }
+  /* Última movimentação numa linha; o restante fica em "Ver histórico". */
+  function ultimoHtml(tabela, item){
+    var ev = eventos(tabela, item);
+    if(!ev.length) return '';
+    var ult = ev[ev.length - 1];
+    var chave = tabela + ':' + item.id;
+    var aberto = !!historicoAberto[chave];
+    var html = '<div class="ultimo"><span><span class="u-quando">' + fmtCurto(ult.iso) + '</span>' + ult.txt + '</span>' +
+      (ev.length > 1 ? '<button type="button" class="lnk" aria-expanded="' + aberto + '" onclick="App.toggleHistorico(\'' + chave + '\')">' + (aberto ? 'Ocultar histórico' : 'Ver histórico') + '</button>' : '') +
+      '</div>';
+    if(aberto && ev.length > 1){
+      html += '<ul class="historico">' + ev.map(function(e){
+        return '<li><span class="h-quando">' + fmtCurto(e.iso) + '</span><span class="h-txt">' + e.txt + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    return html;
+  }
+
+  /* ---------- avisos de item novo ---------- */
   var novidadesConhecidas = null;
 
   function idsAcionaveis(){
@@ -3226,12 +3384,10 @@
     else if(role === 'comprador'){ junta(itemsVal, 'aguardando', 'v'); }
     return ids;
   }
-
   function atualizarTitulo(){
     var n = currentUser ? idsAcionaveis().length : 0;
     document.title = (n ? '(' + n + ') ' : '') + 'Giro';
   }
-
   function verificarNovidades(avisar){
     var atuais = idsAcionaveis();
     if(avisar && novidadesConhecidas){
@@ -3251,6 +3407,15 @@
     atualizarTitulo();
   }
 
+  /* ---------- tabela no computador (comprador e marketing) ---------- */
+  var mqTabela = window.matchMedia ? window.matchMedia('(min-width: 900px)') : null;
+  function usaTabela(){ return !!(mqTabela && mqTabela.matches) && (role === 'comprador' || role === 'marketing'); }
+  if(mqTabela){
+    var aoMudarLargura = function(){ if(currentUser) renderMain(); };
+    if(mqTabela.addEventListener) mqTabela.addEventListener('change', aoMudarLargura);
+    else if(mqTabela.addListener) mqTabela.addListener(aoMudarLargura);
+  }
+
   /* ---------- desenho da tela ---------- */
   function render(){
     if(renderGate()){ renderSelBar(); atualizarTitulo(); return; }
@@ -3263,17 +3428,17 @@
     atualizarTitulo();
   }
 
+  /* Filial do comprador: só um ponto vermelho na outra loja quando ela
+     tem algo esperando por ele (rebaixa, vencimento ou sem estoque). */
   function renderFilialBar(){
     var box = el('filialBar');
     if(!box) return;
     if(!currentUser || !isComprador()){ box.innerHTML = ''; return; }
     box.innerHTML = '<div class="filial-seg" role="radiogroup" aria-label="Filial">' + FILIAIS.map(function(f){
-      var c = contagensAba('val', f.id);
       var on = activeFilial === f.id;
+      var pede = !on && (contagensAba('val', f.id).aberto > 0 || semEstoqueRecentes(itemsExpo, f.id) > 0 || semEstoqueRecentes(itemsPlaca, f.id) > 0);
       return '<button type="button" role="radio" aria-checked="' + on + '" onclick="App.setActiveFilial(\'' + f.id + '\')">' +
-        esc(f.curto) +
-        (c.aberto ? '<span class="seg-n">' + c.aberto + '</span><span class="sr"> ' + plural(c.aberto, 'aguardando rebaixa', 'aguardando rebaixa') + '</span>' : '') +
-        (c.urgente ? '<span class="dot" aria-hidden="true"></span><span class="sr">, ' + plural(c.urgente, 'vence', 'vencem') + ' em até 3 dias</span>' : '') +
+        esc(f.curto) + (pede ? '<span class="dot" aria-hidden="true"></span><span class="sr">, tem itens esperando por você</span>' : '') +
       '</button>';
     }).join('') + '</div>';
   }
@@ -3286,14 +3451,9 @@
       var badge = '';
       if(c.acao > 0) badge = '<span class="tab-n acao" aria-hidden="true">' + c.acao + '</span><span class="sr">, ' + c.acao + ' aguardando você</span>';
       else if(c.aberto > 0) badge = '<span class="tab-n" aria-hidden="true">' + c.aberto + '</span><span class="sr">, ' + c.aberto + ' em aberto</span>';
-      var dot = (c.urgente && role !== 'marketing') ? '<span class="dot" aria-hidden="true"></span><span class="sr">, vencendo em até 3 dias</span>' : '';
+      var dot = c.urgente ? '<span class="dot" aria-hidden="true"></span><span class="sr">, ' + c.motivo + '</span>' : '';
       return '<button type="button" class="tab-btn" role="tab" aria-selected="' + on + '" onclick="App.setTab(\'' + t + '\')">' + TAB_LABEL[t] + badge + dot + '</button>';
     }).join('');
-  }
-
-  function semEstoqueRecentes(arr){
-    var limite = Date.now() - 7*86400000;
-    return arr.filter(inActiveFilial).filter(function(i){ return i.status === 'sem_estoque' && ts(i.verificadoEm) >= limite; }).length;
   }
 
   function renderNotices(){
@@ -3317,13 +3477,6 @@
       if(semFilial){
         html += '<div class="notice notice-info"><span class="txt">' + plural(semFilial, 'item foi registrado', 'itens foram registrados') + ' antes da separação por filial e ' + (semFilial === 1 ? 'aparece' : 'aparecem') + ' nas duas lojas até ' + (semFilial === 1 ? 'ser concluído' : 'serem concluídos') + '.</span></div>';
       }
-      var tabSem = activeTab === 'expo' ? 'expo' : (activeTab === 'placas' ? 'placas' : '');
-      var nSem = tabSem ? semEstoqueRecentes(tabSem === 'expo' ? itemsExpo : itemsPlaca) : 0;
-      if(nSem && filtros[tabSem] !== 'sem_estoque'){
-        html += '<div class="notice notice-urgente" role="status"><span class="txt">' +
-          (nSem === 1 ? 'A conferência confirmou 1 produto sem estoque nos últimos 7 dias.' : 'A conferência confirmou ' + nSem + ' produtos sem estoque nos últimos 7 dias.') +
-          '</span><button type="button" class="btn btn-outline btn-sm" onclick="App.setFiltro(\'' + tabSem + '\',\'sem_estoque\')">Ver</button></div>';
-      }
     }
     if(activeTab === 'val' && (role === 'comprador' || role === 'loja')){
       var urg = contagensAba('val').urgente;
@@ -3338,21 +3491,21 @@
     box.innerHTML = html;
   }
 
-  function chipsHtml(tab, base, contar){
-    var cont = contar || function(st){ return st === 'todos' ? base.length : base.filter(function(i){ return i.status === st; }).length; };
-    return '<div class="filtros" role="group" aria-label="Filtrar por situação">' + FILTROS[tab].map(function(f){
-      var on = filtros[tab] === f[0];
-      return '<button type="button" class="chip" aria-pressed="' + on + '" onclick="App.setFiltro(\'' + tab + '\',\'' + f[0] + '\')">' + f[1] + ' <span class="chip-n">' + cont(f[0]) + '</span></button>';
+  /* contar(statuses|null, chave) devolve a quantidade de cada filtro */
+  function chipsHtml(tab, contar){
+    var ativo = filtroAtivo(tab)[0];
+    return '<div class="filtros" role="group" aria-label="Filtrar">' + filtrosDe(tab).map(function(f){
+      var n = contar(f[2], f[0]);
+      var alerta = f[0] === 'sem_estoque' && n > 0;
+      return '<button type="button" class="chip" aria-pressed="' + (ativo === f[0]) + '" onclick="App.setFiltro(\'' + tab + '\',\'' + f[0] + '\')">' + f[1] +
+        ' <span class="chip-n' + (alerta ? ' alerta' : '') + '">' + n + '</span></button>';
     }).join('') + '</div>';
   }
-
-  function filtrar(base, f){
-    if(f === 'todos') return base.slice();
-    return base.filter(function(i){ return i.status === f; });
+  function contarEm(base){
+    return function(st){ return st ? base.filter(function(i){ return st.indexOf(i.status) !== -1; }).length : base.length; };
   }
 
-  /* Em aberto: mais antigo primeiro (ninguém fica esquecido).
-     Concluídos: mais recente primeiro. */
+  /* Em aberto: mais antigo primeiro. Concluídos: mais recente primeiro. */
   var RANK_EXPO = { pendente:0, estoque:1, resolvido:2, sem_estoque:2 };
   function fimExpo(i){ return i.status === 'sem_estoque' ? i.verificadoEm : i.resolvidoEm; }
   function ordemExpo(a, b){
@@ -3403,43 +3556,37 @@
     '</div>';
   }
 
+  function topoCard(tags, direita){
+    if(!tags && !direita) return '';
+    return '<div class="card-status">' + (tags || '') + (direita ? '<span class="idade">' + direita + '</span>' : '') + '</div>';
+  }
+  function tagSituacao(tab, item){
+    if(!mostrarSituacao(tab)) return '';
+    var st = STATUS[tab][item.status];
+    return st ? '<span class="tag tag-' + st[1] + '">' + st[0] + '</span>' : '';
+  }
+  /* "Meu Oriundi" só para o marketing, que precisa saber qual modelo imprimir. */
+  function tagFidelidade(item){
+    return (role === 'marketing' && item.fidelidade) ? '<span class="tag tag-fid">Meu Oriundi</span>' : '';
+  }
+
   /* Os três botões do abastecimento, iguais em exposição e placas. */
-  function botoesAbastecimento(tabela, item){
+  function botoesAbastecimento(tabela, item, quando){
     var id = item.id;
     return '<div class="abast" role="group" aria-label="Onde está o produto?">' +
-      '<span class="abast-tit">Onde está o produto?</span>' +
+      '<span class="abast-tit"><span>Onde está o produto?</span>' + (quando ? '<span class="idade">' + quando + '</span>' : '') + '</span>' +
       '<button type="button" class="btn btn-primary" onclick="App.confirmarAbastecimento(\'' + tabela + '\',\'' + id + '\',\'loja\')">Produto na loja</button>' +
       '<button type="button" class="btn btn-primary" onclick="App.confirmarAbastecimento(\'' + tabela + '\',\'' + id + '\',\'deposito\')">Encontrado no depósito</button>' +
       '<button type="button" class="btn btn-alerta" onclick="App.naoEncontrado(\'' + tabela + '\',\'' + id + '\')">Não encontrado: enviar ao estoque</button>' +
     '</div>';
   }
 
-  /* Recado do estoque para o abastecimento (quando encontrou o produto). */
+  /* Recado do estoque para o abastecimento, quando encontrou o produto. */
   function notaEstoque(item){
-    if(item.verificacao !== 'encontrado' || item.status === 'estoque') return '';
+    if(item.verificacao !== 'encontrado') return '';
     if(!(item.status === 'pendente' || item.status === 'pronta')) return '';
-    return '<div class="nota"><b>O estoque encontrou o produto</b>' +
-      (item.obsEstoque ? ': ' + esc(item.obsEstoque) : '.') +
-      '<span>Conferido por ' + esc(item.verificadoPor || '—') + ' em ' + fmtDateTime(item.verificadoEm) + '</span></div>';
-  }
-
-  /* Linhas do histórico ligadas ao abastecimento e ao estoque. */
-  function metaAbastEstoque(item, campoFim, porFim, verboFim){
-    var m = '';
-    if(item.enviadoEstoqueEm){
-      m += '<div class="card-meta">Não encontrado por ' + esc(item.enviadoEstoquePor || '—') + ' em ' + fmtDateTime(item.enviadoEstoqueEm) +
-        (item.obsAbastecimento ? '. Procurou em: ' + esc(item.obsAbastecimento) : '') + '</div>';
-    }
-    var temNota = item.verificacao === 'encontrado' && (item.status === 'pendente' || item.status === 'pronta');
-    if(item.verificadoEm && !temNota){
-      m += '<div class="card-meta">Conferido pelo estoque (' + esc(item.verificadoPor || '—') + ') em ' + fmtDateTime(item.verificadoEm) + ': ' +
-        (item.verificacao === 'sem_estoque' ? '<b>sem estoque físico</b>' : 'produto encontrado') +
-        (item.obsEstoque ? '. ' + esc(item.obsEstoque) : '') + '</div>';
-    }
-    if(item[campoFim]){
-      m += '<div class="card-meta">' + verboFim + ' por ' + esc(item[porFim] || '—') + ' em ' + fmtDateTime(item[campoFim]) + '</div>';
-    }
-    return m;
+    return '<div class="nota"><b>O estoque encontrou o produto</b>' + (item.obsEstoque ? ': ' + esc(item.obsEstoque) : '.') +
+      '<span>' + quem(item.verificadoPor) + ', ' + fmtCurto(item.verificadoEm) + '</span></div>';
   }
 
   /* ----- exposição ----- */
@@ -3447,39 +3594,50 @@
     var base = itemsExpo.filter(inActiveFilial);
     var html = '';
     if(role === 'comprador') html += '<div class="acoes"><button type="button" class="btn btn-primary" onclick="App.openNewExpoModal()">' + plusIcon() + 'Avisar item não exposto</button></div>';
-    html += chipsHtml('expo', base);
-    var lst = filtrar(base, filtros.expo).sort(ordemExpo);
-    html += lst.length ? '<div class="card-list">' + lst.map(renderExpoCard).join('') + '</div>' : vazioExpo();
-    return html;
+    html += chipsHtml('expo', contarEm(base));
+    var lst = filtrar(base, 'expo').sort(ordemExpo);
+    if(!lst.length) return html + vazioExpo();
+    if(usaTabela()) return html + tabelaExpo(lst);
+    return html + '<div class="card-list">' + lst.map(renderExpoCard).join('') + '</div>';
   }
   function vazioExpo(){
-    var f = filtros.expo;
-    if(f === 'pendente'){
-      return role === 'loja'
-        ? vazio('Nada para expor', 'Quando o comprador avisar que um produto chegou e não está na seção, ele aparece aqui.')
-        : vazio('Nada aguardando o abastecimento', 'Use "Avisar item não exposto" para pedir que o abastecimento coloque um produto na seção.');
-    }
-    if(f === 'estoque') return vazio('Nada na conferência de estoque', 'Produtos que o abastecimento não encontrar aparecem aqui até o estoque responder.');
-    if(f === 'resolvido') return vazio('Nenhum item confirmado', 'Os itens que o abastecimento confirmar aparecem aqui.');
+    var f = filtroAtivo('expo')[0];
+    if(f === 'fazer') return vazio('Nada para expor', 'Quando o comprador avisar que um produto chegou e não está na seção, ele aparece aqui.');
+    if(f === 'andamento') return vazio('Nenhum aviso em andamento', 'Use "Avisar item não exposto" para pedir que o abastecimento coloque um produto na seção.');
     if(f === 'sem_estoque') return vazio('Nenhum produto sem estoque', 'Quando o estoque confirmar que um produto não tem saldo físico, ele aparece aqui.');
+    if(f === 'feitos' || f === 'concluidos') return vazio('Nenhum item concluído', 'Os itens já respondidos pelo abastecimento aparecem aqui.');
     return vazio('Nenhum item registrado', 'Os avisos de itens não expostos desta filial aparecem aqui.');
   }
   function renderExpoCard(item){
-    var st = STATUS.expo[item.status] || STATUS.expo.pendente;
-    var tags = '<span class="tag tag-' + st[1] + '">' + st[0] + '</span>' +
+    var ehAbast = role === 'loja';
+    var paraFazer = ehAbast && item.status === 'pendente';
+    var tags = tagSituacao('expo', item) +
       (item.status === 'resolvido' && RESULTADO_LABEL[item.resultado] ? '<span class="tag tag-neutro">' + RESULTADO_LABEL[item.resultado] + '</span>' : '');
     var acoes = '';
-    if(role === 'loja' && item.status === 'pendente') acoes = botoesAbastecimento('itensExpo', item);
+    if(paraFazer) acoes = botoesAbastecimento('itensExpo', item, idade(item.verificadoEm || item.criadoEm));
     else if(role === 'comprador' && (item.status === 'pendente' || item.status === 'estoque')) acoes = '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="App.removeExpo(\'' + item.id + '\')">Cancelar aviso</button></div>';
-    var meta = '<div class="card-meta">Avisado por ' + esc(item.criadoPor || '—') + ' em ' + fmtDateTime(item.criadoEm) + '</div>' +
-      metaAbastEstoque(item, 'resolvidoEm', 'resolvidoPor', 'Confirmado');
-    return '<article class="card st-' + st[1] + '">' +
-      '<div class="card-status">' + tags + '</div>' +
+    var st = (STATUS.expo[item.status] || STATUS.expo.pendente)[1];
+    return '<article class="card st-' + st + '">' +
+      topoCard(tags) +
       '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) +
         (item.observacao ? '<p class="card-obs">' + esc(item.observacao) + '</p>' : '') +
       '</div>' +
-      notaEstoque(item) + meta + acoes +
+      (paraFazer ? notaEstoque(item) : ultimoHtml('itensExpo', item)) +
+      acoes +
     '</article>';
+  }
+  function tabelaExpo(lst){
+    return '<div class="tabela-wrap"><table class="lista"><thead><tr><th>Produto</th><th>Situação</th><th>Última movimentação</th><th class="acoes-col"><span class="sr">Ações</span></th></tr></thead><tbody>' +
+      lst.map(function(item){
+        var st = STATUS.expo[item.status] || STATUS.expo.pendente;
+        var podeCancelar = role === 'comprador' && (item.status === 'pendente' || item.status === 'estoque');
+        return '<tr class="st-' + st[1] + '">' +
+          '<td class="nm"><b>' + esc(item.nome) + '</b>' + cardCodigos(item) + (item.observacao ? '<span class="obs">' + esc(item.observacao) + '</span>' : '') + '</td>' +
+          '<td><span class="tag tag-' + st[1] + '">' + st[0] + '</span>' + (item.status === 'resolvido' && RESULTADO_LABEL[item.resultado] ? '<span class="sub">' + RESULTADO_LABEL[item.resultado] + '</span>' : '') + '</td>' +
+          '<td class="mov">' + ultimoHtml('itensExpo', item) + '</td>' +
+          '<td class="acoes-col">' + (podeCancelar ? '<button type="button" class="btn btn-ghost btn-sm" onclick="App.removeExpo(\'' + item.id + '\')">Cancelar aviso</button>' : '') + '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table></div>';
   }
 
   /* ----- validade ----- */
@@ -3487,123 +3645,175 @@
     var base = itemsVal.filter(inActiveFilial);
     var html = '';
     if(role === 'loja') html += '<div class="acoes"><button type="button" class="btn btn-primary" onclick="App.openNewValModal()">' + plusIcon() + 'Reportar item perto do vencimento</button></div>';
-    html += chipsHtml('val', base);
-    var lst = filtrar(base, filtros.val).sort(ordemVal);
-    html += lst.length ? '<div class="card-list">' + lst.map(renderValCard).join('') + '</div>' : vazioVal();
-    return html;
+    html += chipsHtml('val', contarEm(base));
+    var lst = filtrar(base, 'val').sort(ordemVal);
+    if(!lst.length) return html + vazioVal();
+    if(usaTabela()) return html + tabelaVal(lst);
+    return html + '<div class="card-list">' + lst.map(renderValCard).join('') + '</div>';
   }
   function vazioVal(){
-    var f = filtros.val;
+    var f = filtroAtivo('val')[0];
     if(f === 'aguardando'){
       return role === 'comprador'
-        ? vazio('Nada aguardando rebaixa', 'Quando o abastecimento reportar um item perto do vencimento, ele aparece aqui para você registrar a rebaixa.')
+        ? vazio('Nada para rebaixar', 'Quando o abastecimento reportar um item perto do vencimento, ele aparece aqui para você registrar a rebaixa.')
         : vazio('Nenhum item aguardando o comprador', 'Use "Reportar item perto do vencimento" para avisar o comprador.');
     }
     if(f === 'rebaixado') return vazio('Nenhuma rebaixa registrada', 'As rebaixas do comprador aparecem aqui, com o novo preço.');
     return vazio('Nenhum item reportado', 'Os itens perto do vencimento desta filial aparecem aqui.');
   }
+  function prazoTag(item){
+    if(item.status === 'rebaixado') return '';
+    var d = daysUntil(item.validade);
+    return '<span class="tag tag-' + (d <= 3 ? 'urgente' : (d <= 7 ? 'aguardando' : 'neutro')) + '">' + prazoTexto(d) + '</span>';
+  }
+  function placaDaRebaixa(item){
+    var placa = itemsPlaca.filter(function(p){ return p.origemId === item.id; })[0];
+    return (placa && STATUS.placas[placa.status]) ? 'Placa: ' + STATUS.placas[placa.status][0].toLowerCase() : '';
+  }
   function renderValCard(item){
     var d = daysUntil(item.validade);
-    var st = STATUS.val[item.status] || STATUS.val.aguardando;
     var classe = item.status === 'rebaixado' ? 'concluido' : (d <= 3 ? 'urgente' : 'aguardando');
-    var tags = '<span class="tag tag-' + st[1] + '">' + st[0] + '</span>';
-    if(item.status !== 'rebaixado') tags += '<span class="tag tag-' + (d <= 3 ? 'urgente' : (d <= 7 ? 'aguardando' : 'neutro')) + '">' + prazoTexto(d) + '</span>';
-    var corpo = '';
-    var meta = '<div class="card-meta">Validade <b>' + fmtDate(item.validade) + '</b>, cerca de ' + esc(item.quantidade) + ' un.</div>' +
-      '<div class="card-meta">Reportado por ' + esc(item.reportadoPor || '—') + ' em ' + fmtDateTime(item.reportadoEm) + '</div>';
+    var tags = tagSituacao('val', item) + prazoTag(item);
+    var corpo = '<div class="card-meta">Validade <b>' + dataCurta(item.validade) + '</b>, cerca de ' + esc(item.quantidade) + ' un.</div>';
     if(item.status === 'rebaixado'){
-      var placa = itemsPlaca.filter(function(p){ return p.origemId === item.id; })[0];
-      corpo = '<div class="preco"><span class="preco-por"><span class="preco-lbl">Novo preço</span>' + fmtMoney(item.novoPreco) + '</span></div>' +
+      var pl = placaDaRebaixa(item);
+      if(pl) tags += '<span class="tag tag-neutro">' + pl + '</span>';
+      corpo += '<div class="preco"><span class="preco-por"><span class="preco-lbl">Novo preço</span>' + fmtMoney(item.novoPreco) + '</span></div>' +
         (item.observacaoComprador ? '<p class="card-obs">' + esc(item.observacaoComprador) + '</p>' : '');
-      meta += '<div class="card-meta">Rebaixado por ' + esc(item.rebaixadoPor || '—') + ' em ' + fmtDateTime(item.rebaixadoEm) + '</div>';
-      if(placa && STATUS.placas[placa.status]) tags += '<span class="tag tag-neutro">Placa: ' + STATUS.placas[placa.status][0].toLowerCase() + '</span>';
     }
-    var acts = '';
-    if(role === 'comprador' && item.status === 'aguardando'){
-      acts = '<div class="card-actions"><button type="button" class="btn btn-primary" onclick="App.openRebaixaModal(\'' + item.id + '\')">Registrar rebaixa</button></div>';
-    }
+    var acts = (role === 'comprador' && item.status === 'aguardando')
+      ? '<div class="card-actions"><button type="button" class="btn btn-primary" onclick="App.openRebaixaModal(\'' + item.id + '\')">Registrar rebaixa</button></div>' : '';
     return '<article class="card st-' + classe + '">' +
-      '<div class="card-status">' + tags + '</div>' +
-      '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) + corpo + '</div>' +
-      meta + acts +
+      topoCard(tags) +
+      '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) + '</div>' +
+      corpo + ultimoHtml('itensVal', item) + acts +
     '</article>';
+  }
+  function tabelaVal(lst){
+    return '<div class="tabela-wrap"><table class="lista"><thead><tr><th>Produto</th><th>Validade</th><th>Qtd.</th><th>Situação</th><th>Última movimentação</th><th class="acoes-col"><span class="sr">Ações</span></th></tr></thead><tbody>' +
+      lst.map(function(item){
+        var d = daysUntil(item.validade);
+        var classe = item.status === 'rebaixado' ? 'concluido' : (d <= 3 ? 'urgente' : 'aguardando');
+        var st = STATUS.val[item.status] || STATUS.val.aguardando;
+        var situacao = item.status === 'rebaixado'
+          ? '<span class="tag tag-concluido">Rebaixado</span><span class="sub">Novo preço <b>' + fmtMoney(item.novoPreco) + '</b>' + (placaDaRebaixa(item) ? '. ' + placaDaRebaixa(item) : '') + '</span>'
+          : '<span class="tag tag-' + st[1] + '">' + st[0] + '</span>';
+        return '<tr class="st-' + classe + '">' +
+          '<td class="nm"><b>' + esc(item.nome) + '</b>' + cardCodigos(item) + '</td>' +
+          '<td style="white-space:nowrap">' + prazoTag(item) + '<span class="sub">' + dataCurta(item.validade) + '</span></td>' +
+          '<td>' + esc(item.quantidade) + '</td>' +
+          '<td>' + situacao + '</td>' +
+          '<td class="mov">' + ultimoHtml('itensVal', item) + '</td>' +
+          '<td class="acoes-col">' + (role === 'comprador' && item.status === 'aguardando' ? '<button type="button" class="btn btn-primary btn-sm" onclick="App.openRebaixaModal(\'' + item.id + '\')">Registrar rebaixa</button>' : '') + '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table></div>';
   }
 
   /* ----- placas ----- */
   function listaPlacasFiltrada(){
-    return filtrar(itemsPlaca.filter(inActiveFilial), filtros.placas).sort(ordemPlaca);
+    return filtrar(itemsPlaca.filter(inActiveFilial), 'placas').sort(ordemPlaca);
   }
   function renderPlacaTab(){
     var base = itemsPlaca.filter(inActiveFilial);
     var html = '';
     if(role === 'comprador'){
-      html += '<div class="acoes">' +
+      html += '<div class="acoes acoes-dupla">' +
         '<button type="button" class="btn btn-primary" onclick="App.openNewPlacaModal()">' + plusIcon() + 'Pedir placa</button>' +
         '<button type="button" class="btn btn-outline" onclick="App.abrirImportarPlacas()">Importar planilha</button>' +
       '</div>';
     }
-    html += chipsHtml('placas', base);
+    html += chipsHtml('placas', contarEm(base));
     var lst = listaPlacasFiltrada();
-    if(lst.length && podePDF()){
-      var sel = lst.filter(function(i){ return placaSelecionadas[i.id]; }).length;
-      html += '<label class="sel-todas"><input type="checkbox" class="check" onchange="App.toggleSelectAllPlacas(this.checked)"' + (sel && sel === lst.length ? ' checked' : '') + '> Selecionar ' + (lst.length === 1 ? 'esta placa' : 'as ' + lst.length + ' placas desta lista') + ' para imprimir</label>';
-    }
-    html += lst.length ? '<div class="card-list">' + lst.map(renderPlacaCard).join('') + '</div>' : vazioPlaca();
-    return html;
+    if(!lst.length) return html + vazioPlaca();
+    if(usaTabela()) return html + tabelaPlacas(lst);
+    return html + '<div class="card-list">' + lst.map(renderPlacaCard).join('') + '</div>';
   }
   function vazioPlaca(){
-    var f = filtros.placas;
-    if(f === 'pendente'){
+    var f = filtroAtivo('placas')[0];
+    if(f === 'fazer'){
       return role === 'marketing'
         ? vazio('Nenhuma placa para fazer', 'Os pedidos do comprador aparecem aqui, inclusive os gerados por rebaixa.')
-        : vazio('Nada aguardando o marketing', 'Os pedidos de placa ainda não feitos aparecem aqui.');
+        : vazio('Nenhuma placa para colocar', 'Quando o marketing marcar uma placa como feita, ela aparece aqui para você confirmar onde está o produto.');
     }
-    if(f === 'pronta'){
-      return role === 'loja'
-        ? vazio('Nenhuma placa para colocar', 'Quando o marketing marcar uma placa como feita, ela aparece aqui para você confirmar onde está o produto.')
-        : vazio('Nada aguardando o abastecimento', 'As placas já feitas e ainda não colocadas aparecem aqui.');
-    }
-    if(f === 'estoque') return vazio('Nada na conferência de estoque', 'Placas cujo produto o abastecimento não encontrou aparecem aqui até o estoque responder.');
-    if(f === 'confirmado') return vazio('Nenhuma placa na seção', 'As placas que o abastecimento confirmar aparecem aqui.');
+    if(f === 'andamento') return vazio('Nenhuma placa em andamento', 'Rebaixas geram pedidos de placa automaticamente. Use "Pedir placa" ou importe a planilha do encarte.');
     if(f === 'sem_estoque') return vazio('Nenhum produto sem estoque', 'Quando o estoque confirmar que um produto não tem saldo físico, a placa aparece aqui.');
-    return role === 'comprador'
-      ? vazio('Nenhuma placa pedida', 'Rebaixas geram pedidos de placa automaticamente. Use "Pedir placa" ou importe a planilha do encarte.')
-      : vazio('Nenhuma placa', 'Os pedidos de placa desta filial aparecem aqui.');
+    if(f === 'feitas' || f === 'concluidas') return vazio('Nenhuma placa concluída', 'As placas já resolvidas aparecem aqui.');
+    return vazio('Nenhuma placa', 'Os pedidos de placa desta filial aparecem aqui.');
+  }
+  /* Abastecimento e marketing procuram a placa pelo texto impresso nela. */
+  function nomeDiferente(item){
+    return !!item.nomePlaca && normalizeSearch(item.nomePlaca) !== normalizeSearch(item.nome);
+  }
+  function tituloPlaca(item){
+    var impresso = role === 'loja' || role === 'marketing';
+    if(impresso && item.nomePlaca && item.nomePlaca !== item.nome){
+      if(!nomeDiferente(item)) return '<h3 class="card-name">' + esc(item.nomePlaca) + '</h3>';
+      return '<h3 class="card-name">' + esc(item.nomePlaca) + '</h3><div class="nome-sistema">' + esc(item.nome) + '</div>';
+    }
+    var html = '<h3 class="card-name">' + esc(item.nome) + '</h3>';
+    if(role === 'comprador' && nomeDiferente(item)) html += '<div class="nome-sistema">Na placa: ' + esc(item.nomePlaca) + '</div>';
+    return html;
+  }
+  function tagsPlaca(item){
+    var t = tagSituacao('placas', item) +
+      (item.status === 'confirmado' && RESULTADO_LABEL[item.resultado] ? '<span class="tag tag-neutro">' + RESULTADO_LABEL[item.resultado] + '</span>' : '') +
+      tagFidelidade(item);
+    if(item.origem === 'rebaixa' && (role === 'comprador' || role === 'marketing')) t += '<span class="tag tag-neutro">Rebaixa</span>';
+    if(item.origem === 'planilha' && role === 'comprador') t += '<span class="tag tag-neutro">Planilha</span>';
+    return t;
   }
   function renderPlacaCard(item){
-    var st = STATUS.placas[item.status] || STATUS.placas.pendente;
-    var tags = '<span class="tag tag-' + st[1] + '">' + st[0] + '</span>' +
-      (item.status === 'confirmado' && RESULTADO_LABEL[item.resultado] ? '<span class="tag tag-neutro">' + RESULTADO_LABEL[item.resultado] + '</span>' : '') +
-      (item.fidelidade ? '<span class="tag tag-fid">Meu Oriundi</span>' : '') +
-      (item.origem === 'rebaixa' ? '<span class="tag tag-neutro">Rebaixa</span>' : '') +
-      (item.origem === 'planilha' ? '<span class="tag tag-neutro">Planilha</span>' : '');
+    var st = (STATUS.placas[item.status] || STATUS.placas.pendente)[1];
+    var paraColocar = role === 'loja' && item.status === 'pronta';
     var acts = [];
     if(role === 'marketing' && item.status === 'pendente') acts.push('<button type="button" class="btn btn-primary" onclick="App.confirmPlacaPronta(\'' + item.id + '\')">Marcar como feita</button>');
     if(podePDF()) acts.push('<button type="button" class="btn btn-outline' + (acts.length ? ' btn-sm' : '') + '" onclick="App.abrirPreviaPlaca(\'' + item.id + '\')">Conferir e baixar PDF</button>');
     if(role === 'comprador' && item.status === 'pendente' && item.origem !== 'rebaixa') acts.push('<button type="button" class="btn btn-ghost btn-sm" onclick="App.removePlaca(\'' + item.id + '\')">Cancelar pedido</button>');
-
-    var meta = '<div class="card-meta">Pedida por ' + esc(item.criadoPor || '—') + ' em ' + fmtDateTime(item.criadoEm) + '</div>';
-    if(item.prontaEm) meta += '<div class="card-meta">Feita por ' + esc(item.prontaPor || '—') + ' em ' + fmtDateTime(item.prontaEm) + '</div>';
-    meta += metaAbastEstoque(item, 'confirmadoEm', 'confirmadoPor', 'Colocada na seção');
-    var extra = '';
-    if(item.validade) extra += '<div class="card-meta">Oferta válida até <b>' + fmtDate(item.validade) + '</b></div>';
-    if(item.nomePlaca && item.nomePlaca !== item.nome) extra += '<div class="card-meta">Na placa: <b>' + esc(item.nomePlaca) + '</b></div>';
-
+    var oferta = (role !== 'loja' && item.validade) ? '<div class="card-meta">Oferta até <b>' + dataCurta(item.validade) + '</b></div>' : '';
     var marcado = !!placaSelecionadas[item.id];
     var check = podePDF()
       ? '<label class="card-sel"><input type="checkbox" class="check" aria-label="Selecionar ' + esc(item.nome) + ' para imprimir" onchange="App.togglePlacaSelecionada(\'' + item.id + '\', this.checked)"' + (marcado ? ' checked' : '') + '></label>'
       : '';
-    var abast = (role === 'loja' && item.status === 'pronta') ? botoesAbastecimento('itensPlaca', item) : '';
-    return '<article class="card st-' + st[1] + (marcado ? ' selecionado' : '') + '">' +
-      '<div class="card-status">' + tags + '</div>' +
+    return '<article class="card st-' + st + (marcado ? ' selecionado' : '') + '">' +
+      topoCard(tagsPlaca(item)) +
       '<div class="card-top">' + check +
-        '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) +
+        '<div class="card-info">' + tituloPlaca(item) + cardCodigos(item) +
           precoHtml(item.precoDe, item.precoPor, item.infoPlaca) +
           (item.observacao ? '<p class="card-obs">' + esc(item.observacao) + '</p>' : '') +
         '</div></div>' +
-      notaEstoque(item) + extra + meta + abast +
+      oferta +
+      (paraColocar ? notaEstoque(item) + botoesAbastecimento('itensPlaca', item, idade(item.verificadoEm || item.prontaEm)) : ultimoHtml('itensPlaca', item)) +
       (acts.length ? '<div class="card-actions">' + acts.join('') + '</div>' : '') +
     '</article>';
+  }
+  function tabelaPlacas(lst){
+    var sel = lst.filter(function(i){ return placaSelecionadas[i.id]; }).length;
+    var tipoCol = role === 'marketing';
+    return '<div class="tabela-wrap"><table class="lista"><thead><tr>' +
+      '<th class="ck"><input type="checkbox" class="check" aria-label="Selecionar todas para imprimir" onchange="App.toggleSelectAllPlacas(this.checked)"' + (sel && sel === lst.length ? ' checked' : '') + '></th>' +
+      '<th>Produto</th><th>Preço</th>' + (tipoCol ? '<th>Tipo</th>' : '') + '<th>Situação</th><th>Última movimentação</th><th class="acoes-col"><span class="sr">Ações</span></th></tr></thead><tbody>' +
+      lst.map(function(item){
+        var st = STATUS.placas[item.status] || STATUS.placas.pendente;
+        var marcado = !!placaSelecionadas[item.id];
+        var extras = [];
+        if(item.origem === 'rebaixa') extras.push('rebaixa');
+        if(item.origem === 'planilha' && role === 'comprador') extras.push('planilha');
+        if(item.validade) extras.push('oferta até ' + dataCurta(item.validade));
+        var acoes = '';
+        if(role === 'marketing' && item.status === 'pendente') acoes += '<button type="button" class="btn btn-primary btn-sm" onclick="App.confirmPlacaPronta(\'' + item.id + '\')">Marcar como feita</button>';
+        acoes += '<button type="button" class="btn btn-outline btn-sm" onclick="App.abrirPreviaPlaca(\'' + item.id + '\')">PDF</button>';
+        if(role === 'comprador' && item.status === 'pendente' && item.origem !== 'rebaixa') acoes += '<button type="button" class="btn btn-ghost btn-sm" onclick="App.removePlaca(\'' + item.id + '\')">Cancelar</button>';
+        return '<tr class="st-' + st[1] + (marcado ? ' selecionado' : '') + '">' +
+          '<td class="ck"><input type="checkbox" class="check" aria-label="Selecionar ' + esc(item.nome) + '" onchange="App.togglePlacaSelecionada(\'' + item.id + '\', this.checked)"' + (marcado ? ' checked' : '') + '></td>' +
+          '<td class="nm">' + tituloPlaca(item).replace('<h3 class="card-name">', '<b>').replace('</h3>', '</b>') + cardCodigos(item) +
+            (extras.length ? '<span class="sub">' + esc(extras.join(', ').replace(/^./, function(c){ return c.toUpperCase(); })) + '</span>' : '') + '</td>' +
+          '<td class="pr">' + (Number(item.precoDe) > 0 ? '<s>' + fmtMoney(item.precoDe) + '</s>' : '') + '<b>' + (Number(item.precoPor) > 0 ? fmtMoney(item.precoPor) : esc(item.infoPlaca || '—')) + '</b></td>' +
+          (tipoCol ? '<td>' + (item.fidelidade ? '<span class="tag tag-fid">Meu Oriundi</span>' : 'Oferta') + '</td>' : '') +
+          '<td><span class="tag tag-' + st[1] + '">' + st[0] + '</span>' + (item.status === 'confirmado' && RESULTADO_LABEL[item.resultado] ? '<span class="sub">' + RESULTADO_LABEL[item.resultado] + '</span>' : '') + '</td>' +
+          '<td class="mov">' + ultimoHtml('itensPlaca', item) + '</td>' +
+          '<td class="acoes-col">' + acoes + '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table></div>';
   }
 
   /* ----- conferência de estoque ----- */
@@ -3615,12 +3825,12 @@
   }
   function renderEstoqueTab(){
     var todos = itensConferencia();
-    var contar = function(f){
-      if(f === 'aguardando') return todos.filter(function(x){ return x.item.status === 'estoque'; }).length;
-      if(f === 'conferidos') return todos.filter(function(x){ return x.item.status !== 'estoque'; }).length;
+    var contar = function(st, chave){
+      if(chave === 'aguardando') return todos.filter(function(x){ return x.item.status === 'estoque'; }).length;
+      if(chave === 'conferidos') return todos.filter(function(x){ return x.item.status !== 'estoque'; }).length;
       return todos.length;
     };
-    var f = filtros.estoque || 'aguardando';
+    var f = filtroAtivo('estoque')[0];
     var lst = todos.filter(function(x){
       if(f === 'aguardando') return x.item.status === 'estoque';
       if(f === 'conferidos') return x.item.status !== 'estoque';
@@ -3631,12 +3841,11 @@
       if(ra === 0) return ts(a.item.enviadoEstoqueEm) - ts(b.item.enviadoEstoqueEm);
       return ts(b.item.verificadoEm) - ts(a.item.verificadoEm);
     });
-    var html = chipsHtml('estoque', null, contar);
+    var html = chipsHtml('estoque', contar);
     if(!lst.length){
-      html += f === 'aguardando'
+      return html + (f === 'aguardando'
         ? vazio('Nada para conferir', 'Quando o abastecimento não encontrar um produto pedido pelo comprador, ele aparece aqui para você verificar o estoque.')
-        : vazio('Nenhuma conferência registrada', 'As respostas do estoque aparecem aqui.');
-      return html;
+        : vazio('Nenhuma conferência registrada', 'As respostas do estoque aparecem aqui.'));
     }
     return html + '<div class="card-list">' + lst.map(renderConferenciaCard).join('') + '</div>';
   }
@@ -3644,12 +3853,19 @@
     var item = x.item, tabela = x.tabela;
     var ehPlaca = tabela === 'itensPlaca';
     var aguardando = item.status === 'estoque';
-    var tags = '<span class="tag tag-neutro">' + (ehPlaca ? 'Placa' : 'Exposição') + '</span>';
-    if(aguardando) tags = '<span class="tag tag-aguardando">Para conferir</span>' + tags;
-    else if(item.verificacao === 'sem_estoque') tags = '<span class="tag tag-urgente">Sem estoque</span>' + tags;
-    else tags = '<span class="tag tag-concluido">Encontrado</span>' + tags;
-    var pedido = '<div class="card-meta">' + (ehPlaca ? 'Placa pedida por ' : 'Aviso de exposição de ') + esc(item.criadoPor || '—') + ' em ' + fmtDateTime(item.criadoEm) + '</div>';
-    var meta = pedido + metaAbastEstoque(item, null, null, '');
+    var f = filtroAtivo('estoque')[0];
+    var tags = '';
+    if(!aguardando) tags += item.verificacao === 'sem_estoque' ? '<span class="tag tag-urgente">Sem estoque</span>' : '<span class="tag tag-concluido">Encontrado</span>';
+    else if(f !== 'aguardando') tags += '<span class="tag tag-aguardando">Para conferir</span>';
+    tags += '<span class="tag tag-neutro">' + (ehPlaca ? 'Placa' : 'Exposição') + '</span>';
+    var procura = item.enviadoEstoqueEm
+      ? '<div class="card-meta">Não encontrado por ' + quem(item.enviadoEstoquePor) + ', ' + fmtCurto(item.enviadoEstoqueEm) +
+        (item.obsAbastecimento ? '. Procurou em: <b>' + esc(item.obsAbastecimento) + '</b>' : '') + '</div>'
+      : '';
+    var resposta = (!aguardando && item.verificadoEm)
+      ? '<div class="card-meta">Conferido por ' + quem(item.verificadoPor) + ', ' + fmtCurto(item.verificadoEm) + ': ' +
+        (item.verificacao === 'sem_estoque' ? '<b>sem estoque físico</b>' : 'produto encontrado') + (item.obsEstoque ? '. ' + esc(item.obsEstoque) : '') + '</div>'
+      : '';
     var acoes = '';
     if(aguardando && role === 'estoque'){
       acoes = '<div class="abast" role="group" aria-label="Resultado da conferência">' +
@@ -3659,12 +3875,11 @@
       '</div>';
     }
     return '<article class="card st-' + (aguardando ? 'aguardando' : (item.verificacao === 'sem_estoque' ? 'urgente' : 'concluido')) + '">' +
-      '<div class="card-status">' + tags + '</div>' +
-      '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) +
-        (ehPlaca ? precoHtml(item.precoDe, item.precoPor, item.infoPlaca) : '') +
+      topoCard(tags, aguardando ? idade(item.enviadoEstoqueEm) : '') +
+      '<div class="card-info">' + cardCodigos(item, true) + '<h3 class="card-name">' + esc(item.nome) + '</h3>' +
         (item.observacao ? '<p class="card-obs">' + esc(item.observacao) + '</p>' : '') +
       '</div>' +
-      meta + acoes +
+      procura + resposta + acoes +
     '</article>';
   }
 
@@ -3688,6 +3903,8 @@
     renderSelBar();
   }
 
+  /* A barra aparece quando a primeira placa é marcada; é nela que fica o
+     "Selecionar todas", para não ocupar o topo da lista. */
   function renderSelBar(){
     var bar = el('selBar');
     var n = (currentUser && podePDF() && activeTab === 'placas' && !el('authScreen').classList.contains('open')) ? idsSelecionadosVisiveis().length : 0;
@@ -3697,11 +3914,13 @@
       document.body.classList.remove('com-sel');
       return;
     }
+    var total = listaPlacasFiltrada().length;
     bar.classList.add('on');
     document.body.classList.add('com-sel');
-    bar.innerHTML = '<div class="in"><span class="txt">' + (n === 1 ? '1 placa selecionada' : n + ' placas selecionadas') + '</span>' +
+    bar.innerHTML = '<div class="in"><span class="txt">' + (n === 1 ? '1 placa' : n + ' placas') + '</span>' +
+      (n < total ? '<button type="button" class="btn btn-ghost btn-sm" onclick="App.toggleSelectAllPlacas(true)">Todas (' + total + ')</button>' : '') +
       '<button type="button" class="btn btn-ghost btn-sm" onclick="App.limparSelecao()">Limpar</button>' +
-      '<button type="button" class="btn btn-primary" onclick="App.abrirPreviaSelecionadas()">Conferir e gerar PDF</button></div>';
+      '<button type="button" class="btn btn-primary" onclick="App.abrirPreviaSelecionadas()">Gerar PDF</button></div>';
   }
 
   /* ---------- funções chamadas pelos botões ---------- */
@@ -3711,6 +3930,7 @@
     openUsersModal:openUsersModal, addUser:addUser, resetUserPin:resetUserPin, removeUser:removeUser, onRoleChange:onRoleChange,
     setTab:function(t){ activeTab = t; render(); try{ window.scrollTo({ top:0 }); }catch(e){} },
     setFiltro:function(tab, f){ filtros[tab] = f; render(); },
+    toggleHistorico:toggleHistorico,
     closeModal:closeModal, fecharDialogo:fecharDialogo, confirmarDialogo:confirmarDialogo,
     openNewExpoModal:openNewExpoModal, submitNewExpo:submitNewExpo, removeExpo:removeExpo,
     confirmarAbastecimento:confirmarAbastecimento, naoEncontrado:naoEncontrado, respostaEstoque:respostaEstoque,
