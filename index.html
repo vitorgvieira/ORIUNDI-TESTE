@@ -115,7 +115,7 @@
   .check{width:22px;height:22px;accent-color:var(--ink);margin:0;flex-shrink:0;cursor:pointer;}
 
   /* ---------- cards ---------- */
-  .card-list{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;}
+  .card-list{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start;}
   @media(min-width:900px){ .card-list{grid-template-columns:repeat(2,minmax(0,1fr));} }
   @media(min-width:1280px){ .card-list{grid-template-columns:repeat(3,minmax(0,1fr));} }
   .card{
@@ -133,6 +133,7 @@
   .card-name{font-family:var(--font-body);font-weight:600;font-size:15px;line-height:1.3;margin:0;overflow-wrap:anywhere;}
   .card-codes{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:4px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-faint);}
   .card-codes span{white-space:nowrap;}
+  .cod-lbl{font-family:var(--font-body);font-size:12.5px;font-weight:500;}
   .card-obs{font-size:14px;color:var(--ink-soft);line-height:1.45;margin:6px 0 0 0;overflow-wrap:anywhere;}
   .card-meta{font-size:13px;color:var(--ink-faint);line-height:1.45;}
   .card-meta b{color:var(--ink-soft);font-weight:600;}
@@ -140,6 +141,14 @@
   @media(max-width:640px){ .card-actions .btn{flex:1 1 100%;min-height:46px;} }
   .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--line);background:var(--surface-alt);}
   .thumb-placeholder{width:56px;height:56px;border-radius:10px;flex-shrink:0;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);border:1px solid var(--line);}
+  .abast{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:2px;}
+  .abast-tit{grid-column:1 / -1;font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .abast .btn{min-height:52px;width:100%;padding:6px 10px;text-align:center;}
+  .abast .btn-alerta, .abast .btn-largo{grid-column:1 / -1;}
+  .btn-alerta{background:var(--red-soft);color:var(--red);}
+  .btn-alerta:hover{background:#FAD4D4;}
+  .nota{background:var(--green-soft);color:var(--green-ink);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.45;}
+  .nota span{display:block;font-size:12.5px;margin-top:2px;}
   .prova{display:inline-flex;align-items:center;gap:10px;background:none;border:0;padding:0;cursor:pointer;color:var(--ink-soft);font-size:13px;text-decoration:underline;min-height:44px;}
   .prova img{width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--line);}
 
@@ -280,6 +289,8 @@
   body.com-sel .toasts{bottom:calc(84px + env(safe-area-inset-bottom));}
   .toast{background:var(--ink);color:#fff;border-radius:10px;padding:12px 16px;font-size:14.5px;line-height:1.4;max-width:460px;box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:auto;transition:opacity .25s,transform .25s;}
   .toast.erro{background:var(--red);}
+  .toast{display:flex;align-items:center;gap:14px;}
+  .toast-acao{flex-shrink:0;background:none;border:0;color:#fff;font-weight:700;font-size:14.5px;text-decoration:underline;text-underline-offset:3px;min-height:36px;padding:0 4px;cursor:pointer;}
   .toast.sai{opacity:0;transform:translateY(8px);}
 
   /* ---------- telas de entrada ---------- */
@@ -390,7 +401,8 @@
 (function(){
   "use strict";
 
-  var APP_VERSAO = '2026.10.22';
+  var APP_VERSAO = '2026.10.23';
+  var SCRIPT_VERSAO_MIN = 3;   // versão do Apps Script que o setor de Estoque exige
 
   /* ---------- estado ---------- */
   var role = null;
@@ -407,8 +419,6 @@
   var placaSelecionadas = {}; // { id: true }
   var activeFilial = null;
   var currentScanner = null;
-  var pendingPhoto = {};      // foto escolhida em cada formulário aberto
-  var pendingPhotoUser = {};  // true quando a foto foi tirada/anexada pela pessoa (não substituir pela da base)
   var LOGO_SRC = (function(){
     var img = document.querySelector('.brand-logo');
     return img ? img.getAttribute('src') : '';
@@ -707,7 +717,6 @@
         var rec = {};
         if(p.descricao) rec.descricao = p.descricao;
         if(p.codigoInterno) rec.codigoInterno = p.codigoInterno;
-        if(p.foto) rec.foto = p.foto;
         productDB[String(p.barcode)] = rec;
       });
       rebuildProductIndex();
@@ -731,62 +740,25 @@
     if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
   }
 
-  /* Com o script novo, a atualização vem sem as fotos já conhecidas
-     (economiza dados móveis). Fotos que este aparelho ainda não tem são
-     buscadas à parte, só uma vez. */
-  function completarFotos(t, novos, antigos, faltam){
-    var mapa = {};
-    antigos.forEach(function(a){ mapa[a.id] = a; });
-    novos.forEach(function(n){
-      if(!n._omit) return;
-      var a = mapa[n.id];
-      n._omit.forEach(function(k){
-        if(a && a[k]) n[k] = a[k];
-        else {
-          faltam[t] = faltam[t] || [];
-          if(faltam[t].indexOf(n.id) === -1) faltam[t].push(n.id);
-        }
-      });
-      delete n._omit;
-    });
-  }
-  function buscarFotosFaltantes(faltam){
-    Object.keys(faltam).forEach(function(t){
-      var ids = faltam[t];
-      for(var i=0;i<ids.length;i+=40){
-        (function(parte){
-          apiGet('getFotos', { tabela:t, ids:parte.join(',') }).then(function(r){
-            var fotos = (r && r.fotos) || {};
-            var mudou = false;
-            lista(t).forEach(function(it){
-              var f = fotos[it.id];
-              if(!f) return;
-              for(var k in f){ if(f[k]){ it[k] = f[k]; mudou = true; } }
-            });
-            if(mudou && currentUser) renderMain();
-          }).catch(function(){ /* tenta de novo na próxima atualização */ });
-        })(ids.slice(i, i+40));
-      }
-    });
+  function alertasDoNavegador(){
+    try{ return typeof Notification !== 'undefined' && Notification.permission === 'granted'; }catch(e){ return false; }
   }
 
   function pollRefresh(){
     if(!SHEETS_API_URL || !currentUser) return;
-    if(document.hidden) return;
+    // aba em segundo plano: só atualiza se a pessoa ativou os alertas do navegador
+    if(document.hidden && !alertasDoNavegador()) return;
     var seq = syncSeq;
-    var leve = backendVersao >= 2;
-    apiGet('getAll', leve ? { leve:'1' } : null).then(function(all){
+    apiGet('getAll').then(function(all){
       // se um envio terminou enquanto esta leitura viajava, ela pode estar
       // desatualizada: descarta e espera a próxima
       if(seq !== syncSeq) return;
       backendVersao = Number(all.versao) || 1;
       var dados = dadosDe(all);
-      var faltam = {};
-      if(all.versao >= 2) TABELAS.forEach(function(t){ completarFotos(t, dados[t], lista(t), faltam); });
       aplicarFilaEm(dados);
       TABELAS.forEach(function(t){ definirLista(t, dados[t]); });
       render();
-      buscarFotosFaltantes(faltam);
+      verificarNovidades(true);
     }).catch(function(){ /* tenta de novo no próximo ciclo */ });
   }
 
@@ -1092,8 +1064,6 @@
     el('modalBody').innerHTML = '';
     document.body.classList.remove('sem-rolagem');
     modalAberto = false;
-    pendingPhoto = {};
-    pendingPhotoUser = {};
     formProduto = {};
   }
   function cabecalhoModal(titulo){
@@ -1146,18 +1116,32 @@
     el('dialogBody').innerHTML = '';
   }
 
-  function aviso(msg, tipo){
+  /* acao (opcional): { rotulo:'Desfazer', fn:function(){...} } */
+  function aviso(msg, tipo, acao){
     var area = el('toasts');
     if(!area) return;
     var t = document.createElement('div');
     t.className = 'toast' + (tipo === 'erro' ? ' erro' : '');
     t.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
-    t.textContent = msg;
-    area.appendChild(t);
-    setTimeout(function(){
+    var txt = document.createElement('span');
+    txt.textContent = msg;
+    t.appendChild(txt);
+    var fechar = function(){
       t.classList.add('sai');
       setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 300);
-    }, tipo === 'erro' ? 6000 : 3800);
+    };
+    // um aviso por vez: o novo substitui o anterior e não cobre os botões dos cards
+    Array.prototype.forEach.call(area.querySelectorAll('.toast'), function(v){ if(v.parentNode) v.parentNode.removeChild(v); });
+    if(acao){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'toast-acao';
+      b.textContent = acao.rotulo;
+      b.onclick = function(){ fechar(); acao.fn(); };
+      t.appendChild(b);
+    }
+    area.appendChild(t);
+    setTimeout(fechar, acao ? 7000 : (tipo === 'erro' ? 6000 : 3800));
   }
 
   /* Erros de preenchimento aparecem no próprio campo, todos de uma vez. */
@@ -1240,7 +1224,7 @@
       }).join('');
       preview.innerHTML =
         '<div class="lookup-status ok">' + mapped.count.toLocaleString('pt-BR') + ' itens reconhecidos. Primeiros da lista:</div>' +
-        '<div class="tabela-rolavel"><table class="import-table"><tr><th>Cód. barras</th><th>Cód. interno</th><th>Descrição</th></tr>' + rowsHtml + '</table></div>' +
+        '<div class="tabela-rolavel"><table class="import-table"><tr><th>Cód. barras</th><th>Cód. Int.</th><th>Descrição</th></tr>' + rowsHtml + '</table></div>' +
         '<button type="button" class="btn btn-primary btn-block" style="margin:14px 0" onclick="App.confirmImport()">Importar ' + mapped.count.toLocaleString('pt-BR') + ' itens</button>';
     }).catch(function(){
       preview.innerHTML = '<div class="warn-box">Não foi possível ler esse arquivo. Confira se é um .xlsx ou .csv válido.</div>';
@@ -1290,7 +1274,7 @@
   function productDBToArray(){
     return Object.keys(productDB).map(function(bc){
       var p = productDB[bc] || {};
-      return { barcode:bc, descricao:p.descricao||'', codigoInterno:p.codigoInterno||'', foto:p.foto||'' };
+      return { barcode:bc, descricao:p.descricao||'', codigoInterno:p.codigoInterno||'', foto:'' };
     });
   }
   function persistDB(){
@@ -1298,7 +1282,8 @@
   }
 
   /* ---------- filiais e papéis ---------- */
-  var ROLE_LABEL = { comprador:'Comprador', loja:'Loja', marketing:'Marketing' };
+  /* 'loja' é o setor de Abastecimento (o id interno continua 'loja' para não mexer nos cadastros) */
+  var ROLE_LABEL = { comprador:'Comprador', loja:'Abastecimento', marketing:'Marketing', estoque:'Estoque' };
   var FILIAIS = [
     { id:'aracruz',  label:'1 - ARACRUZ',  curto:'Aracruz'  },
     { id:'linhares', label:'2 - LINHARES', curto:'Linhares' }
@@ -1468,6 +1453,7 @@
 
   function visibleTabsFor(r){
     if(r === 'marketing') return ['placas'];
+    if(r === 'estoque') return ['estoque'];
     return ['expo','val','placas'];
   }
 
@@ -1510,6 +1496,8 @@
     filtros.expo = 'pendente';
     filtros.val = 'aguardando';
     filtros.placas = role === 'marketing' ? 'pendente' : (role === 'loja' ? 'pronta' : 'todos');
+    filtros.estoque = 'aguardando';
+    novidadesConhecidas = null;
     var visible = visibleTabsFor(role);
     var comAcao = visible.filter(function(t){ return contagensAba(t).acao > 0; });
     activeTab = comAcao.length ? comAcao[0] : visible[0];
@@ -1520,6 +1508,7 @@
       localStorage.setItem('giro-ultimo-usuario', user.id);
     }catch(e){}
     startPolling();
+    setTimeout(function(){ verificarNovidades(false); }, 0);
     return true;
   }
 
@@ -1559,6 +1548,21 @@
       '<button type="button" class="btn btn-outline btn-sm" onclick="App.enviarAgora()">Enviar agora</button></div>';
   }
 
+  function alertasHtml(){
+    var suporta = false, estado = '';
+    try{ suporta = typeof Notification !== 'undefined'; estado = suporta ? Notification.permission : ''; }catch(e){}
+    if(!suporta) return '';
+    if(estado === 'granted') return '<div class="sync-info">Alertas do navegador ativos neste aparelho.</div>';
+    if(estado === 'denied') return '<div class="sync-info">Alertas do navegador bloqueados. Para ativar, libere as notificações do site nas configurações do navegador.</div>';
+    return '<div class="sync-info"><span>Receba um alerta do navegador quando chegar item novo para você, mesmo com o Giro em outra aba.</span>' +
+      '<button type="button" class="btn btn-outline btn-sm" onclick="App.ativarAlertas()">Ativar alertas</button></div>';
+  }
+  function ativarAlertas(){
+    try{
+      Notification.requestPermission().then(function(){ abrirConta(); });
+    }catch(e){ aviso('Este navegador não permite alertas.', 'erro'); }
+  }
+
   function abrirConta(){
     if(!currentUser) return;
     var desc = isComprador() ? 'Comprador, acesso às duas filiais' : (ROLE_LABEL[role] + ', filial ' + filialCurta(activeFilial));
@@ -1573,8 +1577,9 @@
           '</div>'
         : '') +
       statusSyncHtml() +
+      alertasHtml() +
       '<button type="button" class="btn btn-outline btn-block" onclick="App.logout()">Sair</button>' +
-      '<p class="hint auth-centro" style="margin-top:14px">Giro versão ' + APP_VERSAO + (backendVersao >= 2 ? '' : ', script da planilha na versão antiga') + '</p>'
+      '<p class="hint auth-centro" style="margin-top:14px">Giro versão ' + APP_VERSAO + (backendVersao >= SCRIPT_VERSAO_MIN ? '' : ', script da planilha desatualizado') + '</p>'
     );
   }
 
@@ -1587,7 +1592,7 @@
       '<div class="field"><label for="nu-nome">Nome</label><input type="text" id="nu-nome" autocomplete="off" placeholder="Nome da pessoa"></div>' +
       '<div class="row2">' +
         '<div class="field"><label for="nu-papel">Papel</label><select id="nu-papel" class="select" onchange="App.onRoleChange()">' +
-          '<option value="loja">Loja</option><option value="marketing">Marketing</option><option value="comprador">Comprador</option>' +
+          '<option value="loja">Abastecimento</option><option value="estoque">Estoque</option><option value="marketing">Marketing</option><option value="comprador">Comprador</option>' +
         '</select></div>' +
         '<div class="field" id="nu-filial-field"><label for="nu-filial">Filial</label><select id="nu-filial" class="select">' +
           FILIAIS.map(function(f){ return '<option value="'+f.id+'">'+esc(f.label)+'</option>'; }).join('') +
@@ -1607,7 +1612,7 @@
     filialField.hidden = isComp;
     if(hint) hint.textContent = isComp
       ? 'Compradores têm acesso às duas filiais.'
-      : 'Loja e Marketing só veem as demandas da filial escolhida.';
+      : 'Abastecimento, Estoque e Marketing só veem as demandas da filial escolhida.';
   }
 
   function renderUsersList(){
@@ -1690,95 +1695,22 @@
   }
 
 
-  /* ---------- photo compression ---------- */
-  function fileToCompressedDataURL(file, maxWidth, quality){
-    maxWidth = maxWidth || 360; quality = quality || 0.55;
-    var MAX_CHARS = 42000; // margem de segurança abaixo do limite de 50.000 caracteres por célula do Google Sheets
-    return new Promise(function(resolve,reject){
-      var reader = new FileReader();
-      reader.onload = function(){
-        var img = new Image();
-        img.onload = function(){
-          function attempt(w0, q0, step){
-            var scale = Math.min(1, w0/img.width);
-            var w = Math.max(1, Math.round(img.width*scale));
-            var h = Math.max(1, Math.round(img.height*scale));
-            var canvas = document.createElement('canvas');
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(img,0,0,w,h);
-            var dataUrl;
-            try{ dataUrl = canvas.toDataURL('image/jpeg', q0); }
-            catch(e){ reject(e); return; }
-            if(dataUrl.length <= MAX_CHARS || step >= 4){
-              resolve(dataUrl);
-            } else {
-              attempt(Math.round(w0*0.7), Math.max(0.25, q0-0.15), step+1);
-            }
-          }
-          attempt(maxWidth, quality, 0);
-        };
-        img.onerror = reject;
-        img.src = reader.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-
-
-  /* ---------- fotos ---------- */
-  function thumbOrPlaceholder(foto, size){
-    size = size || 56;
-    if(foto) return '<img class="thumb" style="width:'+size+'px;height:'+size+'px" src="'+esc(foto)+'" alt="" loading="lazy">';
-    return '<div class="thumb-placeholder" style="width:'+size+'px;height:'+size+'px" aria-hidden="true">' +
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7l1.5-3h5L16 7"></path><circle cx="12" cy="13.5" r="3"></circle></svg></div>';
-  }
-  function fotoRowInner(foto, key, rowId){
-    return thumbOrPlaceholder(foto, 56) +
-      '<label class="btn btn-outline file-btn">' + (foto ? 'Trocar foto' : 'Tirar ou anexar foto') +
-      '<input type="file" accept="image/*" capture="environment" onchange="App.handlePhoto(event,\''+key+'\',\''+rowId+'\')"></label>';
-  }
-  function fotoCampoHtml(key, rowId, rotulo){
-    return '<div class="field"><span class="lbl" id="'+rowId+'-lbl">' + rotulo + '</span>' +
-      '<div class="photo-input-row" id="'+rowId+'">' + fotoRowInner(null, key, rowId) + '</div></div>';
-  }
-  function handlePhoto(evt, key, rowId){
-    var file = evt.target.files && evt.target.files[0];
-    if(!file) return;
-    fileToCompressedDataURL(file).then(function(dataUrl){
-      pendingPhoto[key] = dataUrl;
-      pendingPhotoUser[key] = true;
-      var row = el(rowId);
-      if(row){
-        row.innerHTML = fotoRowInner(dataUrl, key, rowId);
-        var f = row.closest('.field');
-        if(f){ f.classList.remove('erro'); var e = f.querySelector('.field-erro.din'); if(e) e.parentNode.removeChild(e); }
-      }
-    }).catch(function(){ aviso('Não foi possível usar essa foto. Tente tirar de novo.', 'erro'); });
-  }
-  function verFoto(tabela, id, campo){
-    var item = lista(tabela).filter(function(i){ return i.id === id; })[0];
-    if(!item || !item[campo]) return;
-    showModal(cabecalhoModal(esc(item.nome)) + '<img class="foto-grande" src="' + esc(item[campo]) + '" alt="Foto registrada na seção">');
-  }
 
   /* ---------- campo único de produto ----------
      Um só campo aceita código de barras, código interno ou parte do nome.
-     O produto escolhido aparece num cartão com foto e códigos; dá para
+     O produto escolhido aparece num cartão com nome e códigos; dá para
      trocar ou corrigir. Se não estiver na base, preenche-se à mão. */
   var formProduto = {};
   var acState = {};
   var acTimer = null;
   var buscaToken = {};
-  var PROD_FOTO = { expo:{ key:'expoNew', row:'photo-row-expo' }, val:{ key:'valNew', row:'photo-row-val' }, placa:{ key:'placaNew', row:'' } };
 
   function campoProdutoHtml(ctx){
     return '<div class="field" id="'+ctx+'-campo">' +
       '<label for="'+ctx+'-q" id="'+ctx+'-lbl">Produto</label>' +
       '<div id="'+ctx+'-busca">' +
         '<div class="barcode-row"><div class="ac-wrap">' +
-          '<input type="text" id="'+ctx+'-q" autocomplete="off" spellcheck="false" placeholder="Código de barras, interno ou nome" ' +
+          '<input type="text" id="'+ctx+'-q" autocomplete="off" spellcheck="false" placeholder="Código de barras, Cód. Int. ou nome" ' +
             'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+ctx+'-ac" ' +
             'oninput="App.produtoInput(\''+ctx+'\')" onkeydown="App.produtoTecla(event,\''+ctx+'\')" onblur="App.produtoBlur(\''+ctx+'\')">' +
           '<div id="'+ctx+'-ac" role="listbox" aria-label="Sugestões de produto"></div>' +
@@ -1848,7 +1780,7 @@
     box.innerHTML = '<div class="ac-list">' + res.list.map(function(p, i){
       return '<div class="ac-item" role="option" id="'+ctx+'-op'+i+'" aria-selected="'+(i===0)+'" onmousedown="event.preventDefault()" onclick="App.escolherSugestao(\''+ctx+'\','+i+')">' +
         '<div class="ac-nome">' + esc(p.descricao || '(sem descrição)') + '</div>' +
-        '<div class="ac-meta"><span>' + esc(p.barcode) + '</span>' + (p.codigoInterno ? '<span>Interno ' + esc(p.codigoInterno) + '</span>' : '') + '</div>' +
+        '<div class="ac-meta"><span>' + esc(p.barcode) + '</span>' + (p.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> ' + esc(p.codigoInterno) + '</span>' : '') + '</div>' +
       '</div>';
     }).join('') +
     (res.total > res.list.length ? '<div class="ac-more">Mais ' + (res.total - res.list.length).toLocaleString('pt-BR') + ' resultados. Continue digitando para refinar.</div>' : '') +
@@ -1904,7 +1836,7 @@
       var ex = lookupByInterno(q);
       if(ex){ lookupBarcode(ctx, ex.barcode); return; }
       fecharSugestoes(ctx);
-      setStatusProduto(ctx, 'Código interno ' + q + ' não encontrado na base de produtos.', 'erro');
+      setStatusProduto(ctx, 'Cód. Int. ' + q + ' não encontrado na base de produtos.', 'erro');
       return;
     }
     if(!st.lista.length) renderSugestoes(ctx);
@@ -1947,8 +1879,9 @@
     });
   }
 
-  /* Busca por código: base interna primeiro; o que faltar (nome ou foto)
-     vem da base nacional (Cosmos), via Apps Script. */
+  /* Busca por código: base interna primeiro. Se o código não estiver na
+     base (ou estiver sem descrição), consulta a base nacional (Cosmos),
+     via Apps Script, só para trazer o nome. */
   function lookupBarcode(ctx, code){
     code = String(code||'').trim().replace(/\s+/g,'');
     if(!code) return;
@@ -1959,36 +1892,27 @@
       var ex = lookupByInterno(code);
       if(ex){ code = ex.barcode; internal = lookupInternal(code); }
     }
-    if(internal && internal.descricao && internal.foto){
-      selecionarProduto(ctx, { barcode:code, nome:internal.descricao, codigoInterno:internal.codigoInterno||'', foto:internal.foto, origem:'base' });
+    if(internal && internal.descricao){
+      selecionarProduto(ctx, { barcode:code, nome:internal.descricao, codigoInterno:internal.codigoInterno||'', origem:'base' });
       return;
     }
-    var parcial = internal ? { barcode:code, nome:internal.descricao||'', codigoInterno:internal.codigoInterno||'', foto:internal.foto||'', origem:'base' } : null;
-    if(parcial && parcial.nome) selecionarProduto(ctx, parcial);
-    else setStatusProduto(ctx, 'Buscando o código ' + code + ' na base nacional…');
+    var codInterno = internal ? (internal.codigoInterno || '') : '';
+    setStatusProduto(ctx, 'Buscando o código ' + code + ' na base nacional…');
     var token = buscaToken[ctx] = uid();
     fetchProductInfo(code).then(function(info){
       if(buscaToken[ctx] !== token) return; // a pessoa já escolheu outro produto
-      if(parcial && parcial.nome){
-        if(info && info.foto && formProduto[ctx] && formProduto[ctx].barcode === code){
-          parcial.foto = info.foto;
-          selecionarProduto(ctx, parcial);
-        }
-        return;
-      }
       if(info && info.nome){
-        selecionarProduto(ctx, { barcode:code, nome:info.nome, codigoInterno:parcial ? parcial.codigoInterno : '', foto:info.foto||'', origem:'cosmos' });
+        selecionarProduto(ctx, { barcode:code, nome:info.nome, codigoInterno:codInterno, origem:'cosmos' });
         return;
       }
-      // achou só foto, ou nada: completa à mão com o código já preenchido
-      produtoManual(ctx, { barcode:code, codigoInterno:parcial ? parcial.codigoInterno : '', foto:(info && info.foto) || '' });
+      produtoManual(ctx, { barcode:code, codigoInterno:codInterno });
       setStatusProduto(ctx, '');
-      var aviso_ = el(ctx+'-manual');
-      if(aviso_ && !el(ctx+'-aviso-manual')){
+      var box = el(ctx+'-manual');
+      if(box && !el(ctx+'-aviso-manual')){
         var p = document.createElement('p');
         p.className = 'hint'; p.id = ctx+'-aviso-manual';
         p.textContent = 'O código ' + code + ' não está na base de produtos nem na base nacional. Confira o número e digite o nome.';
-        aviso_.insertBefore(p, aviso_.firstChild);
+        box.insertBefore(p, box.firstChild);
       }
     });
   }
@@ -2000,9 +1924,9 @@
     if(busca) busca.hidden = true;
     if(manual) manual.hidden = true;
     if(modo) modo.hidden = true;
-    sel.innerHTML = '<div class="prod-sel">' + thumbOrPlaceholder(p.foto, 52) +
+    sel.innerHTML = '<div class="prod-sel">' +
       '<div class="info"><div class="n">' + esc(p.nome) + '</div>' +
-        '<div class="card-codes"><span>' + esc(p.barcode) + '</span>' + (p.codigoInterno ? '<span>Interno ' + esc(p.codigoInterno) + '</span>' : '') + '</div>' +
+        '<div class="card-codes"><span>' + esc(p.barcode) + '</span>' + (p.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> ' + esc(p.codigoInterno) + '</span>' : '') + '</div>' +
         (p.origem === 'cosmos' ? '<p class="hint">Veio da base nacional (Cosmos). Confira o nome.</p>' : '') +
       '</div>' +
       '<div class="prod-acts">' +
@@ -2011,22 +1935,6 @@
       '</div></div>';
     var campo = el(ctx+'-campo');
     if(campo){ campo.classList.remove('erro'); var e = campo.querySelector(':scope > .field-erro.din'); if(e) e.parentNode.removeChild(e); }
-    if(p.foto) definirFotoDoProduto(ctx, p.foto);
-  }
-
-  function definirFotoDoProduto(ctx, foto){
-    var cfg = PROD_FOTO[ctx];
-    if(!cfg || pendingPhotoUser[cfg.key]) return;
-    pendingPhoto[cfg.key] = foto;
-    var row = cfg.row && el(cfg.row);
-    if(row) row.innerHTML = fotoRowInner(foto, cfg.key, cfg.row);
-  }
-  function limparFotoDoProduto(ctx){
-    var cfg = PROD_FOTO[ctx];
-    if(!cfg || pendingPhotoUser[cfg.key]) return;
-    pendingPhoto[cfg.key] = null;
-    var row = cfg.row && el(cfg.row);
-    if(row) row.innerHTML = fotoRowInner(null, cfg.key, cfg.row);
   }
 
   function produtoTrocar(ctx){
@@ -2041,7 +1949,6 @@
     modo.textContent = 'Não encontrou? Preencher à mão';
     modo.setAttribute('onclick', "App.produtoManual('" + ctx + "')");
     var a = el(ctx+'-aviso-manual'); if(a) a.parentNode.removeChild(a);
-    limparFotoDoProduto(ctx);
     var q = el(ctx+'-q');
     q.value = '';
     setStatusProduto(ctx, 'Escaneie, digite o código ou busque pelo nome.');
@@ -2063,7 +1970,6 @@
     el(ctx+'-barcode').value = pre.barcode || (/^\d{8,14}$/.test(q) ? q : '');
     el(ctx+'-nome').value = pre.nome || (q && !/^\d+$/.test(q) ? q.toUpperCase() : '');
     el(ctx+'-codint').value = pre.codigoInterno || '';
-    if(pre.foto) definirFotoDoProduto(ctx, pre.foto);
     var modo = el(ctx+'-modo');
     modo.hidden = false;
     modo.textContent = 'Voltar para a busca';
@@ -2076,7 +1982,7 @@
   function lerProduto(ctx){
     var manual = el(ctx+'-manual');
     if(manual && !manual.hidden){
-      var p = { barcode:val(ctx+'-barcode').replace(/\s+/g,''), nome:val(ctx+'-nome'), codigoInterno:val(ctx+'-codint'), foto:'' };
+      var p = { barcode:val(ctx+'-barcode').replace(/\s+/g,''), nome:val(ctx+'-nome'), codigoInterno:val(ctx+'-codint') };
       var ok = true;
       if(!p.barcode){ erroCampo(ctx+'-barcode', 'Informe o código de barras.'); ok = false; }
       if(!p.nome){ erroCampo(ctx+'-nome', 'Informe o nome do produto.'); ok = false; }
@@ -2088,10 +1994,10 @@
   }
 
   function cardCodigos(item){
-    return '<div class="card-codes"><span>' + esc(item.barcode) + '</span>' + (item.codigoInterno ? '<span>Interno ' + esc(item.codigoInterno) + '</span>' : '') + '</div>';
+    return '<div class="card-codes"><span>' + esc(item.barcode) + '</span>' + (item.codigoInterno ? '<span><span class="cod-lbl">Cód. Int.:</span> ' + esc(item.codigoInterno) + '</span>' : '') + '</div>';
   }
   function contextoItem(item, extra){
-    return '<div class="context-card"><div class="ctx-top">' + thumbOrPlaceholder(item.foto, 48) +
+    return '<div class="context-card"><div class="ctx-top">' +
       '<div style="min-width:0"><div class="ctx-nome">' + esc(item.nome) + '</div>' + cardCodigos(item) + '</div></div>' +
       (extra || '') + '</div>';
   }
@@ -2131,10 +2037,9 @@
     showModal(
       cabecalhoModal('Avisar item não exposto') +
       campoProdutoHtml('expo') +
-      fotoCampoHtml('expoNew', 'photo-row-expo', 'Foto do produto (opcional)') +
-      '<div class="field"><label for="f-obs">Observação para a loja (opcional)</label>' +
+      '<div class="field"><label for="f-obs">Observação para o abastecimento (opcional)</label>' +
         '<textarea id="f-obs" placeholder="Ex.: chegou na entrega de terça, verificar a seção de matinais."></textarea></div>' +
-      '<button type="button" class="btn btn-primary btn-block" onclick="App.submitNewExpo()">Enviar para a loja</button>'
+      '<button type="button" class="btn btn-primary btn-block" onclick="App.submitNewExpo()">Enviar ao abastecimento</button>'
     );
   }
 
@@ -2144,14 +2049,14 @@
     if(!p){ focarPrimeiroErro(); return; }
     var item = {
       id:uid(), filial:activeFilial, barcode:p.barcode, nome:p.nome, codigoInterno:p.codigoInterno||'',
-      foto:pendingPhoto.expoNew || p.foto || '', observacao:val('f-obs'),
+      observacao:val('f-obs'),
       status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome
     };
     itemsExpo.unshift(item);
     salvarItem('itensExpo', item);
     closeModal();
     render();
-    aviso('Aviso enviado para a loja de ' + filialCurta(activeFilial) + '.');
+    aviso('Aviso enviado ao abastecimento de ' + filialCurta(activeFilial) + '.');
   }
 
   function removeExpo(id){
@@ -2159,7 +2064,7 @@
     if(!item) return;
     dialogo({
       titulo:'Cancelar este aviso?',
-      texto:'<b>' + esc(item.nome) + '</b> sai da lista da loja.',
+      texto:'<b>' + esc(item.nome) + '</b> sai da lista do abastecimento' + (item.status === 'estoque' ? ' e da conferência de estoque' : '') + '.',
       confirmar:'Cancelar aviso', cancelar:'Manter', perigo:true,
       onConfirmar:function(){
         itemsExpo = itemsExpo.filter(function(i){ return i.id !== id; });
@@ -2170,68 +2075,98 @@
     });
   }
 
-  function openResolveExpo(id){
-    var item = itemsExpo.filter(function(i){ return i.id === id; })[0];
+  /* ================= ABASTECIMENTO E ESTOQUE =================
+     Exposição e placas usam a mesma confirmação, sem foto: produto na
+     loja, encontrado no depósito ou não encontrado (vai para a
+     conferência do setor de Estoque). Toda resposta pode ser desfeita
+     por alguns segundos, para o caso de toque errado. */
+  var STATUS_AGUARDA_ABAST = { itensExpo:'pendente', itensPlaca:'pronta' };
+  var STATUS_FINAL_ABAST = { itensExpo:'resolvido', itensPlaca:'confirmado' };
+  var CAMPOS_FINAL = { itensExpo:['resolvidoEm','resolvidoPor'], itensPlaca:['confirmadoEm','confirmadoPor'] };
+
+  function acharItem(tabela, id){ return lista(tabela).filter(function(i){ return i.id === id; })[0]; }
+  function guardarCampos(item, campos){
+    var s = {};
+    campos.forEach(function(k){ s[k] = (item[k] === undefined || item[k] === null) ? '' : item[k]; });
+    return s;
+  }
+  function desfazer(tabela, id, antes, campos){
+    var item = acharItem(tabela, id);
     if(!item) return;
-    showModal(
-      cabecalhoModal('Confirmar exposição') +
-      contextoItem(item, item.observacao ? esc(item.observacao) : '') +
-      '<div class="field"><label for="f-confirm-barcode">Código de barras do produto na seção</label>' +
-        '<div class="barcode-row">' +
-          '<input type="text" id="f-confirm-barcode" inputmode="numeric" autocomplete="off" placeholder="Escaneie ou digite">' +
-          '<button type="button" class="scan-btn" aria-label="Escanear código de barras" onclick="App.scanConfirmacao(\'' + id + '\')">' + cameraIcon() + '</button>' +
-        '</div>' +
-        '<div id="match-area" aria-live="polite"></div>' +
-      '</div>' +
-      fotoCampoHtml('resolveProof', 'photo-row-proof', 'Foto do produto na seção') +
-      '<button type="button" class="btn btn-primary btn-block" onclick="App.submitResolveExpo(\'' + id + '\')">Confirmar exposição</button>'
-    );
-    el('f-confirm-barcode').addEventListener('input', function(){ checkMatch(item.barcode, this.value); });
+    for(var k in antes) item[k] = antes[k];
+    salvarItem(tabela, item, campos);
+    render();
+    aviso('Desfeito.');
   }
 
-  function scanConfirmacao(id){
-    var item = itemsExpo.filter(function(i){ return i.id === id; })[0];
-    openScanner(function(text){
-      var inp = el('f-confirm-barcode');
-      if(inp) inp.value = String(text||'').trim();
-      if(item) checkMatch(item.barcode, text);
+  function confirmarAbastecimento(tabela, id, resultado){
+    var item = acharItem(tabela, id);
+    if(!item || item.status !== STATUS_AGUARDA_ABAST[tabela]) return;
+    var cf = CAMPOS_FINAL[tabela];
+    var campos = ['status','resultado', cf[0], cf[1]];
+    var antes = guardarCampos(item, campos);
+    item.status = STATUS_FINAL_ABAST[tabela];
+    item.resultado = resultado;
+    item[cf[0]] = nowIso();
+    item[cf[1]] = currentUser.nome;
+    salvarItem(tabela, item, campos);
+    render();
+    var msg = tabela === 'itensPlaca'
+      ? (resultado === 'loja' ? 'Placa colocada. O produto estava na loja.' : 'Placa colocada. O produto veio do depósito.')
+      : (resultado === 'loja' ? 'Confirmado: o produto estava na loja.' : 'Confirmado: produto encontrado no depósito.');
+    aviso(msg, null, { rotulo:'Desfazer', fn:function(){ desfazer(tabela, id, antes, campos); } });
+  }
+
+  function naoEncontrado(tabela, id){
+    var item = acharItem(tabela, id);
+    if(!item || item.status !== STATUS_AGUARDA_ABAST[tabela]) return;
+    dialogo({
+      titulo:'Enviar para a conferência de estoque?',
+      texto:'<b>' + esc(item.nome) + '</b> não foi encontrado na loja nem no depósito. O setor de Estoque vai receber o pedido para verificar.',
+      campo:{ label:'Onde você procurou? (opcional)', placeholder:'Ex.: seção de higiene e depósito 2' },
+      confirmar:'Enviar ao estoque', cancelar:'Voltar',
+      onConfirmar:function(obs){
+        var campos = ['status','enviadoEstoqueEm','enviadoEstoquePor','obsAbastecimento'];
+        var antes = guardarCampos(item, campos);
+        item.status = 'estoque';
+        item.enviadoEstoqueEm = nowIso();
+        item.enviadoEstoquePor = currentUser.nome;
+        item.obsAbastecimento = obs || '';
+        salvarItem(tabela, item, campos);
+        render();
+        aviso('Enviado para a conferência de estoque.', null, { rotulo:'Desfazer', fn:function(){ desfazer(tabela, id, antes, campos); } });
+      }
     });
   }
 
-  function checkMatch(expected, given){
-    var area = el('match-area');
-    if(!area) return;
-    given = String(given||'').trim();
-    if(!given){ area.innerHTML = ''; return; }
-    if(given === String(expected).trim()){
-      area.innerHTML = '<div class="lookup-status ok">Código confere com o item pedido.</div>';
-    } else {
-      area.innerHTML = '<div class="warn-box">Este código é diferente do item pedido (' + esc(expected) + ').' +
-        '<label class="checkbox-row"><input type="checkbox" class="check" id="override-check"> É o mesmo produto, confirmar mesmo assim</label></div>';
-    }
-  }
-
-  function submitResolveExpo(id){
-    var item = itemsExpo.filter(function(i){ return i.id === id; })[0];
-    if(!item) return;
-    limparErros();
-    var ok = true;
-    var given = val('f-confirm-barcode');
-    if(!given){ erroCampo('f-confirm-barcode', 'Escaneie ou digite o código do produto na seção.'); ok = false; }
-    else if(given !== String(item.barcode).trim()){
-      var o = el('override-check');
-      if(!o || !o.checked){ erroCampo('f-confirm-barcode', 'O código não confere. Confira o produto ou marque a confirmação acima.'); ok = false; }
-    }
-    if(!pendingPhoto.resolveProof){ erroCampo('photo-row-proof', 'Tire a foto do produto na seção.'); ok = false; }
-    if(!ok){ focarPrimeiroErro(); return; }
-    item.status = 'resolvido';
-    item.fotoComprovacao = pendingPhoto.resolveProof;
-    item.resolvidoEm = nowIso();
-    item.resolvidoPor = currentUser.nome;
-    salvarItem('itensExpo', item, ['status','fotoComprovacao','resolvidoEm','resolvidoPor']);
-    closeModal();
-    render();
-    aviso('Exposição confirmada. O comprador já pode ver.');
+  function respostaEstoque(tabela, id, verificacao){
+    var item = acharItem(tabela, id);
+    if(!item || item.status !== 'estoque') return;
+    var achou = verificacao === 'encontrado';
+    dialogo({
+      titulo: achou ? 'Produto encontrado no estoque' : 'Confirmar que está sem estoque?',
+      texto: achou
+        ? '<b>' + esc(item.nome) + '</b> volta para o Abastecimento ' + (tabela === 'itensPlaca' ? 'colocar a placa na seção.' : 'expor na seção.')
+        : 'O comprador vai ver que <b>' + esc(item.nome) + '</b> está sem estoque físico.',
+      campo:{
+        label: achou ? 'Onde está o produto? (opcional)' : 'Observação para o comprador (opcional)',
+        placeholder: achou ? 'Ex.: palete 3, corredor B do depósito' : 'Ex.: sistema mostra 24 un., físico zero'
+      },
+      confirmar: achou ? 'Devolver ao abastecimento' : 'Confirmar sem estoque',
+      cancelar:'Voltar',
+      onConfirmar:function(obs){
+        var campos = ['status','verificacao','verificadoEm','verificadoPor','obsEstoque'];
+        var antes = guardarCampos(item, campos);
+        item.status = achou ? STATUS_AGUARDA_ABAST[tabela] : 'sem_estoque';
+        item.verificacao = verificacao;
+        item.verificadoEm = nowIso();
+        item.verificadoPor = currentUser.nome;
+        item.obsEstoque = obs || '';
+        salvarItem(tabela, item, campos);
+        render();
+        aviso(achou ? 'Devolvido ao abastecimento.' : 'Comprador avisado: sem estoque.', null, { rotulo:'Desfazer', fn:function(){ desfazer(tabela, id, antes, campos); } });
+      }
+    });
   }
 
   /* ================= VALIDADE (vencimento e rebaixa) ================= */
@@ -2240,7 +2175,6 @@
     showModal(
       cabecalhoModal('Reportar item perto do vencimento') +
       campoProdutoHtml('val') +
-      fotoCampoHtml('valNew', 'photo-row-val', 'Foto do produto (opcional)') +
       '<div class="row2">' +
         '<div class="field"><label for="fv-validade">Data de validade</label><input type="date" id="fv-validade"></div>' +
         '<div class="field"><label for="fv-qtd">Quantidade (aprox.)</label><input type="number" id="fv-qtd" min="1" step="1" inputmode="numeric" placeholder="Ex.: 12"></div>' +
@@ -2260,7 +2194,7 @@
     if(!ok){ focarPrimeiroErro(); return; }
     var item = {
       id:uid(), filial:activeFilial, barcode:p.barcode, nome:p.nome, codigoInterno:p.codigoInterno||'',
-      foto:pendingPhoto.valNew || p.foto || '', validade:validade, quantidade:Number(qtd),
+      validade:validade, quantidade:Number(qtd),
       reportadoEm:nowIso(), reportadoPor:currentUser.nome, status:'aguardando'
     };
     itemsVal.unshift(item);
@@ -2284,7 +2218,7 @@
         campoPreco('fr-preco', 'Preço Por (novo)', '', 'oninput="App.descontoRebaixa()"') +
       '</div>' +
       '<p class="desconto" id="fr-desc" aria-live="polite"></p>' +
-      '<div class="field"><label for="fr-obs">Orientação para a loja (opcional)</label>' +
+      '<div class="field"><label for="fr-obs">Orientação para o abastecimento (opcional)</label>' +
         '<textarea id="fr-obs" placeholder="Ex.: rebaixar e colocar na ponta de gôndola."></textarea></div>' +
       '<p class="hint" style="margin:-6px 0 14px 0">Ao registrar, o Giro já pede a placa ao marketing.</p>' +
       '<button type="button" class="btn btn-primary btn-block" onclick="App.submitRebaixa(\'' + id + '\')">Registrar rebaixa</button>'
@@ -2306,7 +2240,7 @@
     salvarItem('itensVal', item, ['status','novoPreco','observacaoComprador','rebaixadoEm','rebaixadoPor']);
     var placa = {
       id:uid(), filial:item.filial || activeFilial, barcode:item.barcode, nome:item.nome, codigoInterno:item.codigoInterno||'',
-      foto:item.foto || '', infoPlaca:fmtMoney(pr.por), observacao:obs, origem:'rebaixa', origemId:item.id,
+      infoPlaca:fmtMoney(pr.por), observacao:obs, origem:'rebaixa', origemId:item.id,
       precoDe:pr.de, precoPor:pr.por, status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome,
       validade:'', fidelidade:''
     };
@@ -2373,7 +2307,7 @@
     }
     var item = {
       id:uid(), filial:activeFilial, barcode:p.barcode, nome:p.nome, codigoInterno:p.codigoInterno||'',
-      foto:pendingPhoto.placaNew || p.foto || '', infoPlaca:'', observacao:val('fp-obs'), origem:'manual',
+      infoPlaca:'', observacao:val('fp-obs'), origem:'manual',
       status:'pendente', criadoEm:nowIso(), criadoPor:currentUser.nome,
       precoDe:pr.de, precoPor:pr.por, validade:val('fp-validade'),
       // texto '1' ou vazio (não boolean): a coluna da planilha é texto
@@ -2417,7 +2351,7 @@
     if(!mudadas.length) return;
     salvarItens('itensPlaca', mudadas, ['status','prontaEm','prontaPor']);
     render();
-    aviso(mudadas.length === 1 ? 'Placa marcada como feita. A loja já pode colocar.' : mudadas.length + ' placas marcadas como feitas. A loja já pode colocar.');
+    aviso(mudadas.length === 1 ? 'Placa marcada como feita. O abastecimento já pode colocar.' : mudadas.length + ' placas marcadas como feitas. O abastecimento já pode colocar.');
   }
 
   function confirmPlacaPronta(id){
@@ -2425,39 +2359,10 @@
     if(!item) return;
     dialogo({
       titulo:'Marcar placa como feita?',
-      texto:'A loja de ' + esc(filialCurta(item.filial || activeFilial)) + ' vai ver <b>' + esc(item.nomePlaca || item.nome) + '</b> para colocar na seção.',
+      texto:'O abastecimento de ' + esc(filialCurta(item.filial || activeFilial)) + ' vai ver <b>' + esc(item.nomePlaca || item.nome) + '</b> para colocar na seção.',
       confirmar:'Marcar como feita',
       onConfirmar:function(){ marcarFeitas([id]); }
     });
-  }
-
-  function openLojaPlacaModal(id){
-    var item = itemsPlaca.filter(function(i){ return i.id === id; })[0];
-    if(!item) return;
-    showModal(
-      cabecalhoModal('Registrar placa na seção') +
-      contextoItem(item,
-        precoHtml(item.precoDe, item.precoPor, item.infoPlaca) +
-        (item.observacao ? '<div style="margin-top:6px">' + esc(item.observacao) + '</div>' : '') +
-        '<div style="margin-top:6px">Placa feita por ' + esc(item.prontaPor || '—') + ' em ' + fmtDateTime(item.prontaEm) + '</div>') +
-      fotoCampoHtml('placaProof', 'photo-row-placaproof', 'Foto da placa na seção') +
-      '<button type="button" class="btn btn-primary btn-block" onclick="App.submitLojaPlaca(\'' + id + '\')">Confirmar placa na seção</button>'
-    );
-  }
-
-  function submitLojaPlaca(id){
-    var item = itemsPlaca.filter(function(i){ return i.id === id; })[0];
-    if(!item) return;
-    limparErros();
-    if(!pendingPhoto.placaProof){ erroCampo('photo-row-placaproof', 'Tire a foto da placa já colocada na seção.'); focarPrimeiroErro(); return; }
-    item.status = 'confirmado';
-    item.fotoComprovacao = pendingPhoto.placaProof;
-    item.confirmadoEm = nowIso();
-    item.confirmadoPor = currentUser.nome;
-    salvarItem('itensPlaca', item, ['status','fotoComprovacao','confirmadoEm','confirmadoPor']);
-    closeModal();
-    render();
-    aviso('Placa registrada na seção.');
   }
 
   /* ---------- importar pedidos de placa por planilha ---------- */
@@ -2467,7 +2372,7 @@
     importPlacas = null;
     showModal(
       cabecalhoModal('Importar placas da planilha') +
-      '<p class="hint" style="margin-top:0">Uma linha por produto. O Giro reconhece as colunas <b>Código de barras</b> (ou <b>Código interno</b>), <b>Preço De</b>, <b>Preço Por</b>, <b>Validade</b>, <b>Meu Oriundi</b> (Sim ou Não), <b>Descrição</b> e <b>Observação</b>. Nome e foto vêm da base de produtos.</p>' +
+      '<p class="hint" style="margin-top:0">Uma linha por produto. O Giro reconhece as colunas <b>Código de barras</b> (ou <b>Código interno</b>), <b>Preço De</b>, <b>Preço Por</b>, <b>Validade</b>, <b>Meu Oriundi</b> (Sim ou Não), <b>Descrição</b> e <b>Observação</b>. O nome vem da base de produtos.</p>' +
       '<p class="hint">Os pedidos vão para a filial <b>' + esc(filialCurta(activeFilial)) + '</b>. Para a outra loja, troque a filial no topo e importe de novo.</p>' +
       '<div class="acoes" style="margin-top:14px">' +
         '<label class="btn btn-primary file-btn">Escolher planilha<input type="file" accept=".xlsx,.xls,.csv" onchange="App.handlePlacasFile(event)"></label>' +
@@ -2597,7 +2502,7 @@
       }
       vistos[bc] = true;
       ok.push({
-        barcode:bc, nome:nome, codigoInterno:(base && base.codigoInterno) || ci || '', foto:(base && base.foto) || '',
+        barcode:bc, nome:nome, codigoInterno:(base && base.codigoInterno) || ci || '',
         precoDe:(!isNaN(de) && de > 0) ? de : '', precoPor:por, validade:validade || '',
         fidelidade:(campos.fidelidade && simNao(r[campos.fidelidade])) ? '1' : '',
         observacao:campos.observacao ? textoCelula(r[campos.observacao]) : ''
@@ -2645,7 +2550,7 @@
     var agora = nowIso();
     var novos = importPlacas.map(function(p){
       return {
-        id:uid(), filial:activeFilial, barcode:p.barcode, nome:p.nome, codigoInterno:p.codigoInterno, foto:p.foto,
+        id:uid(), filial:activeFilial, barcode:p.barcode, nome:p.nome, codigoInterno:p.codigoInterno,
         infoPlaca:'', observacao:p.observacao, origem:'planilha', status:'pendente', criadoEm:agora, criadoPor:currentUser.nome,
         precoDe:p.precoDe, precoPor:p.precoPor, validade:p.validade, fidelidade:p.fidelidade
       };
@@ -3256,7 +3161,7 @@
     if(pendentes.length){
       dialogo({
         titulo: pendentes.length === 1 ? 'Marcar a placa como feita?' : 'Marcar as ' + pendentes.length + ' placas como feitas?',
-        texto:'Depois de imprimir, marque para a loja saber que já pode colocar na seção.',
+        texto:'Depois de imprimir, marque para o abastecimento saber que já pode colocar na seção.',
         confirmar:'Marcar como feita' + (pendentes.length === 1 ? '' : 's'),
         cancelar:'Agora não',
         onConfirmar:function(){ marcarFeitas(pendentes); }
@@ -3266,43 +3171,96 @@
 
   /* ---------- situação de cada item, com o nome dizendo quem age ---------- */
   var STATUS = {
-    expo:   { pendente:['Aguardando loja','aguardando'], resolvido:['Na seção','concluido'] },
+    expo:   { pendente:['Aguardando abastecimento','aguardando'], estoque:['Aguardando estoque','aguardando'],
+              resolvido:['Na seção','concluido'], sem_estoque:['Sem estoque','urgente'] },
     val:    { aguardando:['Aguardando comprador','aguardando'], rebaixado:['Rebaixado','concluido'] },
-    placas: { pendente:['Aguardando marketing','aguardando'], pronta:['Aguardando loja','aguardando'], confirmado:['Na seção','concluido'] }
+    placas: { pendente:['Aguardando marketing','aguardando'], pronta:['Aguardando abastecimento','aguardando'],
+              estoque:['Aguardando estoque','aguardando'], confirmado:['Na seção','concluido'], sem_estoque:['Sem estoque','urgente'] }
   };
   var FILTROS = {
-    expo:   [['pendente','Aguardando loja'],['resolvido','Na seção'],['todos','Todos']],
-    val:    [['aguardando','Aguardando comprador'],['rebaixado','Rebaixado'],['todos','Todos']],
-    placas: [['pendente','Aguardando marketing'],['pronta','Aguardando loja'],['confirmado','Na seção'],['todos','Todos']]
+    expo:    [['pendente','Aguardando abastecimento'],['estoque','Aguardando estoque'],['resolvido','Na seção'],['sem_estoque','Sem estoque'],['todos','Todos']],
+    val:     [['aguardando','Aguardando comprador'],['rebaixado','Rebaixado'],['todos','Todos']],
+    placas:  [['pendente','Aguardando marketing'],['pronta','Aguardando abastecimento'],['estoque','Aguardando estoque'],['confirmado','Na seção'],['sem_estoque','Sem estoque'],['todos','Todos']],
+    estoque: [['aguardando','Para conferir'],['conferidos','Conferidos'],['todos','Todos']]
   };
-  var TAB_LABEL = { expo:'Exposição', val:'Validade', placas:'Placas' };
+  var TAB_LABEL = { expo:'Exposição', val:'Validade', placas:'Placas', estoque:'Conferência' };
+  var RESULTADO_LABEL = { loja:'Estava na loja', deposito:'Veio do depósito' };
 
+  function contaStatus(arr, st){ return arr.filter(function(i){ return i.status === st; }).length; }
+
+  /* acao: itens que dependem de quem está logado; aberto: tudo em andamento */
   function contagensAba(t, fil){
     fil = fil || activeFilial;
     if(t === 'expo'){
-      var pend = daFilial(itemsExpo, fil).filter(function(i){ return i.status === 'pendente'; }).length;
-      return { acao: role === 'loja' ? pend : 0, aberto: pend, urgente: 0 };
+      var ex = daFilial(itemsExpo, fil);
+      var pend = contaStatus(ex, 'pendente'), est = contaStatus(ex, 'estoque');
+      return { acao: role === 'loja' ? pend : 0, aberto: pend + est, urgente: 0 };
     }
     if(t === 'val'){
       var ag = daFilial(itemsVal, fil).filter(function(i){ return i.status === 'aguardando'; });
       var urg = ag.filter(function(i){ return daysUntil(i.validade) <= 3; }).length;
       return { acao: role === 'comprador' ? ag.length : 0, aberto: ag.length, urgente: urg };
     }
+    if(t === 'estoque'){
+      var n = contaStatus(daFilial(itemsExpo, fil), 'estoque') + contaStatus(daFilial(itemsPlaca, fil), 'estoque');
+      return { acao: role === 'estoque' ? n : 0, aberto: n, urgente: 0 };
+    }
     var pl = daFilial(itemsPlaca, fil);
-    var p1 = pl.filter(function(i){ return i.status === 'pendente'; }).length;
-    var p2 = pl.filter(function(i){ return i.status === 'pronta'; }).length;
-    return { acao: role === 'marketing' ? p1 : (role === 'loja' ? p2 : 0), aberto: p1 + p2, urgente: 0 };
+    var p1 = contaStatus(pl, 'pendente'), p2 = contaStatus(pl, 'pronta'), p3 = contaStatus(pl, 'estoque');
+    return { acao: role === 'marketing' ? p1 : (role === 'loja' ? p2 : 0), aberto: p1 + p2 + p3, urgente: 0 };
+  }
+
+  /* ---------- avisos de item novo ----------
+     A cada atualização, compara o que depende da pessoa com o que já
+     existia. Item novo: aviso na tela, vibração no celular, contagem no
+     título da aba e, se ativado, alerta do navegador. */
+  var novidadesConhecidas = null;
+
+  function idsAcionaveis(){
+    if(!currentUser) return [];
+    var f = activeFilial, ids = [];
+    function junta(arr, st, prefixo){ daFilial(arr, f).forEach(function(i){ if(i.status === st) ids.push(prefixo + i.id); }); }
+    if(role === 'loja'){ junta(itemsExpo, 'pendente', 'e'); junta(itemsPlaca, 'pronta', 'p'); }
+    else if(role === 'estoque'){ junta(itemsExpo, 'estoque', 'e'); junta(itemsPlaca, 'estoque', 'p'); }
+    else if(role === 'marketing'){ junta(itemsPlaca, 'pendente', 'p'); }
+    else if(role === 'comprador'){ junta(itemsVal, 'aguardando', 'v'); }
+    return ids;
+  }
+
+  function atualizarTitulo(){
+    var n = currentUser ? idsAcionaveis().length : 0;
+    document.title = (n ? '(' + n + ') ' : '') + 'Giro';
+  }
+
+  function verificarNovidades(avisar){
+    var atuais = idsAcionaveis();
+    if(avisar && novidadesConhecidas){
+      var novos = atuais.filter(function(id){ return novidadesConhecidas.indexOf(id) === -1; });
+      if(novos.length){
+        var txt = role === 'estoque'
+          ? (novos.length === 1 ? 'Novo produto para conferir no estoque.' : novos.length + ' novos produtos para conferir no estoque.')
+          : (novos.length === 1 ? 'Chegou 1 item novo para você.' : 'Chegaram ' + novos.length + ' itens novos para você.');
+        aviso(txt);
+        try{ if(navigator.vibrate) navigator.vibrate([120, 80, 120]); }catch(e){}
+        if(document.hidden && alertasDoNavegador()){
+          try{ new Notification('Giro', { body:txt, tag:'giro-novidades' }); }catch(e){ /* celular: só o aviso na tela */ }
+        }
+      }
+    }
+    novidadesConhecidas = atuais;
+    atualizarTitulo();
   }
 
   /* ---------- desenho da tela ---------- */
   function render(){
-    if(renderGate()){ renderSelBar(); return; }
+    if(renderGate()){ renderSelBar(); atualizarTitulo(); return; }
     renderConta();
     renderFilialBar();
     renderTabs();
     renderNotices();
     renderMain();
     renderSelBar();
+    atualizarTitulo();
   }
 
   function renderFilialBar(){
@@ -3333,6 +3291,11 @@
     }).join('');
   }
 
+  function semEstoqueRecentes(arr){
+    var limite = Date.now() - 7*86400000;
+    return arr.filter(inActiveFilial).filter(function(i){ return i.status === 'sem_estoque' && ts(i.verificadoEm) >= limite; }).length;
+  }
+
   function renderNotices(){
     var box = el('notices');
     if(!box) return;
@@ -3344,6 +3307,9 @@
         ' e o Giro tenta enviar de novo sozinho.</span>' +
         '<button type="button" class="btn btn-outline btn-sm" onclick="App.enviarAgora()">Tentar agora</button></div>';
     }
+    if(isComprador() && backendVersao < SCRIPT_VERSAO_MIN){
+      html += '<div class="notice notice-urgente" role="status"><span class="txt">O script da planilha está desatualizado. Atualize o Apps Script para a conferência de estoque funcionar.</span></div>';
+    }
     if(isComprador()){
       var semFilial = itemsExpo.filter(function(i){ return !i.filial; }).length +
                       itemsVal.filter(function(i){ return !i.filial; }).length +
@@ -3351,8 +3317,15 @@
       if(semFilial){
         html += '<div class="notice notice-info"><span class="txt">' + plural(semFilial, 'item foi registrado', 'itens foram registrados') + ' antes da separação por filial e ' + (semFilial === 1 ? 'aparece' : 'aparecem') + ' nas duas lojas até ' + (semFilial === 1 ? 'ser concluído' : 'serem concluídos') + '.</span></div>';
       }
+      var tabSem = activeTab === 'expo' ? 'expo' : (activeTab === 'placas' ? 'placas' : '');
+      var nSem = tabSem ? semEstoqueRecentes(tabSem === 'expo' ? itemsExpo : itemsPlaca) : 0;
+      if(nSem && filtros[tabSem] !== 'sem_estoque'){
+        html += '<div class="notice notice-urgente" role="status"><span class="txt">' +
+          (nSem === 1 ? 'A conferência confirmou 1 produto sem estoque nos últimos 7 dias.' : 'A conferência confirmou ' + nSem + ' produtos sem estoque nos últimos 7 dias.') +
+          '</span><button type="button" class="btn btn-outline btn-sm" onclick="App.setFiltro(\'' + tabSem + '\',\'sem_estoque\')">Ver</button></div>';
+      }
     }
-    if(activeTab === 'val' && role !== 'marketing'){
+    if(activeTab === 'val' && (role === 'comprador' || role === 'loja')){
       var urg = contagensAba('val').urgente;
       if(urg){
         html += '<div class="notice notice-urgente" role="status"><span class="txt">' +
@@ -3365,8 +3338,8 @@
     box.innerHTML = html;
   }
 
-  function chipsHtml(tab, base){
-    var cont = function(st){ return st === 'todos' ? base.length : base.filter(function(i){ return i.status === st; }).length; };
+  function chipsHtml(tab, base, contar){
+    var cont = contar || function(st){ return st === 'todos' ? base.length : base.filter(function(i){ return i.status === st; }).length; };
     return '<div class="filtros" role="group" aria-label="Filtrar por situação">' + FILTROS[tab].map(function(f){
       var on = filtros[tab] === f[0];
       return '<button type="button" class="chip" aria-pressed="' + on + '" onclick="App.setFiltro(\'' + tab + '\',\'' + f[0] + '\')">' + f[1] + ' <span class="chip-n">' + cont(f[0]) + '</span></button>';
@@ -3380,11 +3353,14 @@
 
   /* Em aberto: mais antigo primeiro (ninguém fica esquecido).
      Concluídos: mais recente primeiro. */
+  var RANK_EXPO = { pendente:0, estoque:1, resolvido:2, sem_estoque:2 };
+  function fimExpo(i){ return i.status === 'sem_estoque' ? i.verificadoEm : i.resolvidoEm; }
   function ordemExpo(a, b){
-    var ra = a.status === 'pendente' ? 0 : 1, rb = b.status === 'pendente' ? 0 : 1;
+    var ra = RANK_EXPO[a.status] || 0, rb = RANK_EXPO[b.status] || 0;
     if(ra !== rb) return ra - rb;
     if(ra === 0) return ts(a.criadoEm) - ts(b.criadoEm);
-    return ts(b.resolvidoEm) - ts(a.resolvidoEm);
+    if(ra === 1) return ts(a.enviadoEstoqueEm) - ts(b.enviadoEstoqueEm);
+    return ts(fimExpo(b)) - ts(fimExpo(a));
   }
   function ordemVal(a, b){
     var ra = a.status === 'aguardando' ? 0 : 1, rb = b.status === 'aguardando' ? 0 : 1;
@@ -3392,13 +3368,15 @@
     if(ra === 0) return daysUntil(a.validade) - daysUntil(b.validade);
     return ts(b.rebaixadoEm) - ts(a.rebaixadoEm);
   }
-  var RANK_PLACA = { pendente:0, pronta:1, confirmado:2 };
+  var RANK_PLACA = { pendente:0, pronta:1, estoque:2, confirmado:3, sem_estoque:3 };
+  function fimPlaca(i){ return i.status === 'sem_estoque' ? i.verificadoEm : i.confirmadoEm; }
   function ordemPlaca(a, b){
     var ra = RANK_PLACA[a.status] || 0, rb = RANK_PLACA[b.status] || 0;
     if(ra !== rb) return ra - rb;
     if(ra === 0) return ts(a.criadoEm) - ts(b.criadoEm);
     if(ra === 1) return ts(a.prontaEm) - ts(b.prontaEm);
-    return ts(b.confirmadoEm) - ts(a.confirmadoEm);
+    if(ra === 2) return ts(a.enviadoEstoqueEm) - ts(b.enviadoEstoqueEm);
+    return ts(fimPlaca(b)) - ts(fimPlaca(a));
   }
 
   function vazio(titulo, texto){
@@ -3411,13 +3389,8 @@
     if(visibleTabsFor(role).indexOf(activeTab) === -1) activeTab = visibleTabsFor(role)[0];
     if(activeTab === 'expo') box.innerHTML = renderExpoTab();
     else if(activeTab === 'val') box.innerHTML = renderValTab();
+    else if(activeTab === 'estoque') box.innerHTML = renderEstoqueTab();
     else box.innerHTML = renderPlacaTab();
-  }
-
-  function provaHtml(tabela, item, rotulo){
-    if(!item.fotoComprovacao) return '';
-    return '<button type="button" class="prova" onclick="App.verFoto(\'' + tabela + '\',\'' + item.id + '\',\'fotoComprovacao\')">' +
-      '<img src="' + esc(item.fotoComprovacao) + '" alt="" loading="lazy"><span>' + rotulo + '</span></button>';
   }
 
   function precoHtml(de, por, info){
@@ -3428,6 +3401,45 @@
       '<span class="preco-por"><span class="preco-lbl">Por</span>' + fmtMoney(por) + '</span>' +
       (pct ? '<span class="preco-off">−' + pct + '%</span>' : '') +
     '</div>';
+  }
+
+  /* Os três botões do abastecimento, iguais em exposição e placas. */
+  function botoesAbastecimento(tabela, item){
+    var id = item.id;
+    return '<div class="abast" role="group" aria-label="Onde está o produto?">' +
+      '<span class="abast-tit">Onde está o produto?</span>' +
+      '<button type="button" class="btn btn-primary" onclick="App.confirmarAbastecimento(\'' + tabela + '\',\'' + id + '\',\'loja\')">Produto na loja</button>' +
+      '<button type="button" class="btn btn-primary" onclick="App.confirmarAbastecimento(\'' + tabela + '\',\'' + id + '\',\'deposito\')">Encontrado no depósito</button>' +
+      '<button type="button" class="btn btn-alerta" onclick="App.naoEncontrado(\'' + tabela + '\',\'' + id + '\')">Não encontrado: enviar ao estoque</button>' +
+    '</div>';
+  }
+
+  /* Recado do estoque para o abastecimento (quando encontrou o produto). */
+  function notaEstoque(item){
+    if(item.verificacao !== 'encontrado' || item.status === 'estoque') return '';
+    if(!(item.status === 'pendente' || item.status === 'pronta')) return '';
+    return '<div class="nota"><b>O estoque encontrou o produto</b>' +
+      (item.obsEstoque ? ': ' + esc(item.obsEstoque) : '.') +
+      '<span>Conferido por ' + esc(item.verificadoPor || '—') + ' em ' + fmtDateTime(item.verificadoEm) + '</span></div>';
+  }
+
+  /* Linhas do histórico ligadas ao abastecimento e ao estoque. */
+  function metaAbastEstoque(item, campoFim, porFim, verboFim){
+    var m = '';
+    if(item.enviadoEstoqueEm){
+      m += '<div class="card-meta">Não encontrado por ' + esc(item.enviadoEstoquePor || '—') + ' em ' + fmtDateTime(item.enviadoEstoqueEm) +
+        (item.obsAbastecimento ? '. Procurou em: ' + esc(item.obsAbastecimento) : '') + '</div>';
+    }
+    var temNota = item.verificacao === 'encontrado' && (item.status === 'pendente' || item.status === 'pronta');
+    if(item.verificadoEm && !temNota){
+      m += '<div class="card-meta">Conferido pelo estoque (' + esc(item.verificadoPor || '—') + ') em ' + fmtDateTime(item.verificadoEm) + ': ' +
+        (item.verificacao === 'sem_estoque' ? '<b>sem estoque físico</b>' : 'produto encontrado') +
+        (item.obsEstoque ? '. ' + esc(item.obsEstoque) : '') + '</div>';
+    }
+    if(item[campoFim]){
+      m += '<div class="card-meta">' + verboFim + ' por ' + esc(item[porFim] || '—') + ' em ' + fmtDateTime(item[campoFim]) + '</div>';
+    }
+    return m;
   }
 
   /* ----- exposição ----- */
@@ -3445,29 +3457,28 @@
     if(f === 'pendente'){
       return role === 'loja'
         ? vazio('Nada para expor', 'Quando o comprador avisar que um produto chegou e não está na seção, ele aparece aqui.')
-        : vazio('Nenhum item aguardando a loja', 'Use "Avisar item não exposto" para pedir que a loja coloque um produto na seção.');
+        : vazio('Nada aguardando o abastecimento', 'Use "Avisar item não exposto" para pedir que o abastecimento coloque um produto na seção.');
     }
-    if(f === 'resolvido') return vazio('Nenhum item colocado na seção', 'Os itens que a loja confirmar com foto aparecem aqui.');
+    if(f === 'estoque') return vazio('Nada na conferência de estoque', 'Produtos que o abastecimento não encontrar aparecem aqui até o estoque responder.');
+    if(f === 'resolvido') return vazio('Nenhum item confirmado', 'Os itens que o abastecimento confirmar aparecem aqui.');
+    if(f === 'sem_estoque') return vazio('Nenhum produto sem estoque', 'Quando o estoque confirmar que um produto não tem saldo físico, ele aparece aqui.');
     return vazio('Nenhum item registrado', 'Os avisos de itens não expostos desta filial aparecem aqui.');
   }
   function renderExpoCard(item){
     var st = STATUS.expo[item.status] || STATUS.expo.pendente;
-    var acts = [];
-    if(role === 'loja' && item.status === 'pendente') acts.push('<button type="button" class="btn btn-primary" onclick="App.openResolveExpo(\'' + item.id + '\')">Confirmar exposição</button>');
-    if(role === 'comprador' && item.status === 'pendente') acts.push('<button type="button" class="btn btn-ghost btn-sm" onclick="App.removeExpo(\'' + item.id + '\')">Cancelar aviso</button>');
-    var meta = '<div class="card-meta">Avisado por ' + esc(item.criadoPor || '—') + ' em ' + fmtDateTime(item.criadoEm) + '</div>';
-    if(item.status === 'resolvido'){
-      meta += '<div class="card-meta">Colocado na seção por ' + esc(item.resolvidoPor || '—') + ' em ' + fmtDateTime(item.resolvidoEm) + '</div>' +
-        provaHtml('itensExpo', item, 'Ver foto na seção');
-    }
+    var tags = '<span class="tag tag-' + st[1] + '">' + st[0] + '</span>' +
+      (item.status === 'resolvido' && RESULTADO_LABEL[item.resultado] ? '<span class="tag tag-neutro">' + RESULTADO_LABEL[item.resultado] + '</span>' : '');
+    var acoes = '';
+    if(role === 'loja' && item.status === 'pendente') acoes = botoesAbastecimento('itensExpo', item);
+    else if(role === 'comprador' && (item.status === 'pendente' || item.status === 'estoque')) acoes = '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="App.removeExpo(\'' + item.id + '\')">Cancelar aviso</button></div>';
+    var meta = '<div class="card-meta">Avisado por ' + esc(item.criadoPor || '—') + ' em ' + fmtDateTime(item.criadoEm) + '</div>' +
+      metaAbastEstoque(item, 'resolvidoEm', 'resolvidoPor', 'Confirmado');
     return '<article class="card st-' + st[1] + '">' +
-      '<div class="card-status"><span class="tag tag-' + st[1] + '">' + st[0] + '</span></div>' +
-      '<div class="card-top">' + thumbOrPlaceholder(item.foto, 56) +
-        '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) +
-          (item.observacao ? '<p class="card-obs">' + esc(item.observacao) + '</p>' : '') +
-        '</div></div>' +
-      meta +
-      (acts.length ? '<div class="card-actions">' + acts.join('') + '</div>' : '') +
+      '<div class="card-status">' + tags + '</div>' +
+      '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) +
+        (item.observacao ? '<p class="card-obs">' + esc(item.observacao) + '</p>' : '') +
+      '</div>' +
+      notaEstoque(item) + meta + acoes +
     '</article>';
   }
 
@@ -3485,7 +3496,7 @@
     var f = filtros.val;
     if(f === 'aguardando'){
       return role === 'comprador'
-        ? vazio('Nada aguardando rebaixa', 'Quando a loja reportar um item perto do vencimento, ele aparece aqui para você registrar a rebaixa.')
+        ? vazio('Nada aguardando rebaixa', 'Quando o abastecimento reportar um item perto do vencimento, ele aparece aqui para você registrar a rebaixa.')
         : vazio('Nenhum item aguardando o comprador', 'Use "Reportar item perto do vencimento" para avisar o comprador.');
     }
     if(f === 'rebaixado') return vazio('Nenhuma rebaixa registrada', 'As rebaixas do comprador aparecem aqui, com o novo preço.');
@@ -3513,8 +3524,7 @@
     }
     return '<article class="card st-' + classe + '">' +
       '<div class="card-status">' + tags + '</div>' +
-      '<div class="card-top">' + thumbOrPlaceholder(item.foto, 56) +
-        '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) + corpo + '</div></div>' +
+      '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) + corpo + '</div>' +
       meta + acts +
     '</article>';
   }
@@ -3550,10 +3560,12 @@
     }
     if(f === 'pronta'){
       return role === 'loja'
-        ? vazio('Nenhuma placa para colocar', 'Quando o marketing marcar uma placa como feita, ela aparece aqui para você registrar a foto na seção.')
-        : vazio('Nada aguardando a loja', 'As placas já feitas e ainda não colocadas aparecem aqui.');
+        ? vazio('Nenhuma placa para colocar', 'Quando o marketing marcar uma placa como feita, ela aparece aqui para você confirmar onde está o produto.')
+        : vazio('Nada aguardando o abastecimento', 'As placas já feitas e ainda não colocadas aparecem aqui.');
     }
-    if(f === 'confirmado') return vazio('Nenhuma placa na seção', 'As placas que a loja confirmar com foto aparecem aqui.');
+    if(f === 'estoque') return vazio('Nada na conferência de estoque', 'Placas cujo produto o abastecimento não encontrou aparecem aqui até o estoque responder.');
+    if(f === 'confirmado') return vazio('Nenhuma placa na seção', 'As placas que o abastecimento confirmar aparecem aqui.');
+    if(f === 'sem_estoque') return vazio('Nenhum produto sem estoque', 'Quando o estoque confirmar que um produto não tem saldo físico, a placa aparece aqui.');
     return role === 'comprador'
       ? vazio('Nenhuma placa pedida', 'Rebaixas geram pedidos de placa automaticamente. Use "Pedir placa" ou importe a planilha do encarte.')
       : vazio('Nenhuma placa', 'Os pedidos de placa desta filial aparecem aqui.');
@@ -3561,21 +3573,18 @@
   function renderPlacaCard(item){
     var st = STATUS.placas[item.status] || STATUS.placas.pendente;
     var tags = '<span class="tag tag-' + st[1] + '">' + st[0] + '</span>' +
+      (item.status === 'confirmado' && RESULTADO_LABEL[item.resultado] ? '<span class="tag tag-neutro">' + RESULTADO_LABEL[item.resultado] + '</span>' : '') +
       (item.fidelidade ? '<span class="tag tag-fid">Meu Oriundi</span>' : '') +
       (item.origem === 'rebaixa' ? '<span class="tag tag-neutro">Rebaixa</span>' : '') +
       (item.origem === 'planilha' ? '<span class="tag tag-neutro">Planilha</span>' : '');
     var acts = [];
     if(role === 'marketing' && item.status === 'pendente') acts.push('<button type="button" class="btn btn-primary" onclick="App.confirmPlacaPronta(\'' + item.id + '\')">Marcar como feita</button>');
-    if(role === 'loja' && item.status === 'pronta') acts.push('<button type="button" class="btn btn-primary" onclick="App.openLojaPlacaModal(\'' + item.id + '\')">Registrar na seção</button>');
     if(podePDF()) acts.push('<button type="button" class="btn btn-outline' + (acts.length ? ' btn-sm' : '') + '" onclick="App.abrirPreviaPlaca(\'' + item.id + '\')">Conferir e baixar PDF</button>');
     if(role === 'comprador' && item.status === 'pendente' && item.origem !== 'rebaixa') acts.push('<button type="button" class="btn btn-ghost btn-sm" onclick="App.removePlaca(\'' + item.id + '\')">Cancelar pedido</button>');
 
     var meta = '<div class="card-meta">Pedida por ' + esc(item.criadoPor || '—') + ' em ' + fmtDateTime(item.criadoEm) + '</div>';
     if(item.prontaEm) meta += '<div class="card-meta">Feita por ' + esc(item.prontaPor || '—') + ' em ' + fmtDateTime(item.prontaEm) + '</div>';
-    if(item.status === 'confirmado'){
-      meta += '<div class="card-meta">Colocada na seção por ' + esc(item.confirmadoPor || '—') + ' em ' + fmtDateTime(item.confirmadoEm) + '</div>' +
-        provaHtml('itensPlaca', item, 'Ver foto na seção');
-    }
+    meta += metaAbastEstoque(item, 'confirmadoEm', 'confirmadoPor', 'Colocada na seção');
     var extra = '';
     if(item.validade) extra += '<div class="card-meta">Oferta válida até <b>' + fmtDate(item.validade) + '</b></div>';
     if(item.nomePlaca && item.nomePlaca !== item.nome) extra += '<div class="card-meta">Na placa: <b>' + esc(item.nomePlaca) + '</b></div>';
@@ -3584,15 +3593,78 @@
     var check = podePDF()
       ? '<label class="card-sel"><input type="checkbox" class="check" aria-label="Selecionar ' + esc(item.nome) + ' para imprimir" onchange="App.togglePlacaSelecionada(\'' + item.id + '\', this.checked)"' + (marcado ? ' checked' : '') + '></label>'
       : '';
+    var abast = (role === 'loja' && item.status === 'pronta') ? botoesAbastecimento('itensPlaca', item) : '';
     return '<article class="card st-' + st[1] + (marcado ? ' selecionado' : '') + '">' +
       '<div class="card-status">' + tags + '</div>' +
-      '<div class="card-top">' + check + thumbOrPlaceholder(item.foto, 56) +
+      '<div class="card-top">' + check +
         '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) +
           precoHtml(item.precoDe, item.precoPor, item.infoPlaca) +
           (item.observacao ? '<p class="card-obs">' + esc(item.observacao) + '</p>' : '') +
         '</div></div>' +
-      extra + meta +
+      notaEstoque(item) + extra + meta + abast +
       (acts.length ? '<div class="card-actions">' + acts.join('') + '</div>' : '') +
+    '</article>';
+  }
+
+  /* ----- conferência de estoque ----- */
+  function itensConferencia(){
+    var lst = [];
+    itemsExpo.filter(inActiveFilial).forEach(function(i){ lst.push({ tabela:'itensExpo', item:i }); });
+    itemsPlaca.filter(inActiveFilial).forEach(function(i){ lst.push({ tabela:'itensPlaca', item:i }); });
+    return lst.filter(function(x){ return x.item.status === 'estoque' || x.item.verificadoEm; });
+  }
+  function renderEstoqueTab(){
+    var todos = itensConferencia();
+    var contar = function(f){
+      if(f === 'aguardando') return todos.filter(function(x){ return x.item.status === 'estoque'; }).length;
+      if(f === 'conferidos') return todos.filter(function(x){ return x.item.status !== 'estoque'; }).length;
+      return todos.length;
+    };
+    var f = filtros.estoque || 'aguardando';
+    var lst = todos.filter(function(x){
+      if(f === 'aguardando') return x.item.status === 'estoque';
+      if(f === 'conferidos') return x.item.status !== 'estoque';
+      return true;
+    }).sort(function(a, b){
+      var ra = a.item.status === 'estoque' ? 0 : 1, rb = b.item.status === 'estoque' ? 0 : 1;
+      if(ra !== rb) return ra - rb;
+      if(ra === 0) return ts(a.item.enviadoEstoqueEm) - ts(b.item.enviadoEstoqueEm);
+      return ts(b.item.verificadoEm) - ts(a.item.verificadoEm);
+    });
+    var html = chipsHtml('estoque', null, contar);
+    if(!lst.length){
+      html += f === 'aguardando'
+        ? vazio('Nada para conferir', 'Quando o abastecimento não encontrar um produto pedido pelo comprador, ele aparece aqui para você verificar o estoque.')
+        : vazio('Nenhuma conferência registrada', 'As respostas do estoque aparecem aqui.');
+      return html;
+    }
+    return html + '<div class="card-list">' + lst.map(renderConferenciaCard).join('') + '</div>';
+  }
+  function renderConferenciaCard(x){
+    var item = x.item, tabela = x.tabela;
+    var ehPlaca = tabela === 'itensPlaca';
+    var aguardando = item.status === 'estoque';
+    var tags = '<span class="tag tag-neutro">' + (ehPlaca ? 'Placa' : 'Exposição') + '</span>';
+    if(aguardando) tags = '<span class="tag tag-aguardando">Para conferir</span>' + tags;
+    else if(item.verificacao === 'sem_estoque') tags = '<span class="tag tag-urgente">Sem estoque</span>' + tags;
+    else tags = '<span class="tag tag-concluido">Encontrado</span>' + tags;
+    var pedido = '<div class="card-meta">' + (ehPlaca ? 'Placa pedida por ' : 'Aviso de exposição de ') + esc(item.criadoPor || '—') + ' em ' + fmtDateTime(item.criadoEm) + '</div>';
+    var meta = pedido + metaAbastEstoque(item, null, null, '');
+    var acoes = '';
+    if(aguardando && role === 'estoque'){
+      acoes = '<div class="abast" role="group" aria-label="Resultado da conferência">' +
+        '<span class="abast-tit">Resultado da conferência</span>' +
+        '<button type="button" class="btn btn-primary btn-largo" onclick="App.respostaEstoque(\'' + tabela + '\',\'' + item.id + '\',\'encontrado\')">Encontrado: devolver ao abastecimento</button>' +
+        '<button type="button" class="btn btn-alerta" onclick="App.respostaEstoque(\'' + tabela + '\',\'' + item.id + '\',\'sem_estoque\')">Sem estoque: avisar o comprador</button>' +
+      '</div>';
+    }
+    return '<article class="card st-' + (aguardando ? 'aguardando' : (item.verificacao === 'sem_estoque' ? 'urgente' : 'concluido')) + '">' +
+      '<div class="card-status">' + tags + '</div>' +
+      '<div class="card-info"><h3 class="card-name">' + esc(item.nome) + '</h3>' + cardCodigos(item) +
+        (ehPlaca ? precoHtml(item.precoDe, item.precoPor, item.infoPlaca) : '') +
+        (item.observacao ? '<p class="card-obs">' + esc(item.observacao) + '</p>' : '') +
+      '</div>' +
+      meta + acoes +
     '</article>';
   }
 
@@ -3635,25 +3707,25 @@
   /* ---------- funções chamadas pelos botões ---------- */
   window.App = {
     submitSetup:submitSetup, submitLogin:submitLogin, logout:logout,
-    abrirConta:abrirConta, enviarAgora:enviarAgora,
+    abrirConta:abrirConta, enviarAgora:enviarAgora, ativarAlertas:ativarAlertas,
     openUsersModal:openUsersModal, addUser:addUser, resetUserPin:resetUserPin, removeUser:removeUser, onRoleChange:onRoleChange,
     setTab:function(t){ activeTab = t; render(); try{ window.scrollTo({ top:0 }); }catch(e){} },
     setFiltro:function(tab, f){ filtros[tab] = f; render(); },
     closeModal:closeModal, fecharDialogo:fecharDialogo, confirmarDialogo:confirmarDialogo,
     openNewExpoModal:openNewExpoModal, submitNewExpo:submitNewExpo, removeExpo:removeExpo,
-    openResolveExpo:openResolveExpo, submitResolveExpo:submitResolveExpo, scanConfirmacao:scanConfirmacao,
+    confirmarAbastecimento:confirmarAbastecimento, naoEncontrado:naoEncontrado, respostaEstoque:respostaEstoque,
     openNewValModal:openNewValModal, submitNewVal:submitNewVal,
     openRebaixaModal:openRebaixaModal, submitRebaixa:submitRebaixa,
     descontoRebaixa:function(){ atualizarDesconto('fr-precode', 'fr-preco', 'fr-desc'); },
     openNewPlacaModal:openNewPlacaModal, submitNewPlaca:function(){ submitNewPlaca(false); }, removePlaca:removePlaca,
     setPlacaTipo:setPlacaTipo, descontoPlaca:function(){ atualizarDesconto('fp-precode', 'fp-precopor', 'fp-desc'); },
-    confirmPlacaPronta:confirmPlacaPronta, openLojaPlacaModal:openLojaPlacaModal, submitLojaPlaca:submitLojaPlaca,
+    confirmPlacaPronta:confirmPlacaPronta,
     abrirImportarPlacas:abrirImportarPlacas, handlePlacasFile:handlePlacasFile, confirmarImportPlacas:confirmarImportPlacas, baixarModeloPlacas:baixarModeloPlacas,
     openImportDBModal:openImportDBModal, handleDBFile:handleDBFile, confirmImport:confirmImport, clearDB:clearDB,
     closeScanner:closeScanner, scanFromFile:scanFromFile,
     produtoInput:produtoInput, produtoTecla:produtoTecla, produtoBlur:produtoBlur, escolherSugestao:escolherSugestao,
     scanProduto:scanProduto, produtoTrocar:produtoTrocar, produtoEditar:produtoEditar, produtoManual:produtoManual,
-    setActiveFilial:setActiveFilial, handlePhoto:handlePhoto, verFoto:verFoto,
+    setActiveFilial:setActiveFilial,
     submitApiUrl:submitApiUrl, retryApi:retryApi, changeApiUrl:changeApiUrl,
     toggleSelectAllPlacas:toggleSelectAllPlacas, togglePlacaSelecionada:togglePlacaSelecionada, limparSelecao:limparSelecao,
     abrirPreviaPlaca:abrirPreviaPlaca, abrirPreviaSelecionadas:abrirPreviaSelecionadas,
